@@ -43,6 +43,16 @@ var avatar := {}
 ## Sütlü'nün son beslendiği gün ve kaç gün beslendiği.
 var sutlu_fed := ""
 var sutlu_love := 0
+## Evin içi: yer (slot) id -> eşya id. Kurabiyeyle alınan eşyalar: id -> true.
+var ev := {}
+var ev_items := {}
+## Bostan: her tarh {"crop": "domates", "planted": "YYYY-MM-DD"} ya da boş {}.
+var bostan: Array = [{}, {}, {}, {}]
+## Bostandan toplanıp henüz verilmemiş sebzeler: id -> adet.
+var harvest := {}
+## Ahmet Amca'yla tavla: kazanılan ve oynanan oyunlar.
+var tavla_won := 0
+var tavla_played := 0
 
 
 func _ready() -> void:
@@ -320,6 +330,12 @@ func save_game() -> void:
 	cfg.set_value("komsular", "dostluk", friendship)
 	cfg.set_value("komsular", "ricalar", favors_done)
 	cfg.set_value("komsular", "tohumlar", favor_seeds)
+	cfg.set_value("ev", "yerler", ev)
+	cfg.set_value("ev", "esyalar", ev_items)
+	cfg.set_value("bostan", "tarhlar", bostan)
+	cfg.set_value("bostan", "hasat", harvest)
+	cfg.set_value("tavla", "kazanilan", tavla_won)
+	cfg.set_value("tavla", "oynanan", tavla_played)
 	cfg.save(SAVE_PATH)
 
 
@@ -344,6 +360,12 @@ func load_game() -> void:
 	friendship = cfg.get_value("komsular", "dostluk", {})
 	favors_done = cfg.get_value("komsular", "ricalar", {})
 	favor_seeds = cfg.get_value("komsular", "tohumlar", {})
+	ev = cfg.get_value("ev", "yerler", {})
+	ev_items = cfg.get_value("ev", "esyalar", {})
+	bostan = cfg.get_value("bostan", "tarhlar", [{}, {}, {}, {}])
+	harvest = cfg.get_value("bostan", "hasat", {})
+	tavla_won = cfg.get_value("tavla", "kazanilan", 0)
+	tavla_played = cfg.get_value("tavla", "oynanan", 0)
 
 
 func reset() -> void:
@@ -356,6 +378,12 @@ func reset() -> void:
 	avatar = {}
 	sutlu_fed = ""
 	sutlu_love = 0
+	ev = {}
+	ev_items = {}
+	bostan = [{}, {}, {}, {}]
+	harvest = {}
+	tavla_won = 0
+	tavla_played = 0
 	fresh_unlocks = []
 	streak = 1
 	daily_gift = 0
