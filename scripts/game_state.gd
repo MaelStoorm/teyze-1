@@ -32,6 +32,11 @@ var streak := 0
 var settings := {"text": 1.0, "sound": true, "music": true, "tutorial": false, "grafik": 1}
 ## Henüz gösterilmemiş günlük hediye (kurabiye). Ana ekran gösterip sıfırlar.
 var daily_gift := 0
+## Haftanın 7. gününün sürprizi: hediye edilen ev eşyasının id'si (gösterilince silinir).
+var daily_surprise := ""
+## Hediye takviminin günleri: üst üste gelinen her gün biraz daha çok kurabiye,
+## 7. gün büyük hediye ve evin için bir sürpriz eşya. Sonra hafta baştan başlar.
+const GIFT_DAYS := [3, 4, 5, 6, 7, 8, 12]
 ## Komşularla dostluk: id -> kalp sayısı.
 var friendship := {}
 ## Bugün ricası yapılan komşular: id -> true. Yeni günde sıfırlanır.
@@ -106,11 +111,31 @@ func check_new_day() -> bool:
 	if errands_date != "" and gap <= 0:
 		return false
 	streak = streak + 1 if gap == 1 else 1
-	daily_gift = 2 + mini(streak, 7)
+	daily_gift = GIFT_DAYS[gift_day() - 1]
 	kurabiye += daily_gift
+	daily_surprise = ""
+	if gift_day() == 7:
+		daily_surprise = _surprise_item()
+		if daily_surprise != "":
+			ev_items[daily_surprise] = true
 	errands_date = now
 	new_day()
 	return true
+
+
+## Hediye takviminde bugün kaçıncı gün (1-7).
+func gift_day() -> int:
+	return (maxi(streak, 1) - 1) % 7 + 1
+
+
+## Henüz alınmamış ev eşyalarından en ucuzlardan biri (hepsi alındıysa "").
+func _surprise_item() -> String:
+	var free: Array = EvEsya.ALL.filter(func(it): return not ev_items.has(it["id"]))
+	if free.is_empty():
+		return ""
+	free.sort_custom(func(a, b): return a["price"] < b["price"])
+	free = free.slice(0, 6)
+	return free[hash(today()) % free.size()]["id"]
 
 
 # --- seviye ---------------------------------------------------------------
@@ -476,5 +501,6 @@ func reset() -> void:
 	fresh_unlocks = []
 	streak = 1
 	daily_gift = 0
+	daily_surprise = ""
 	errands_date = today()
 	new_day(false)
