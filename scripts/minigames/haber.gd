@@ -9,11 +9,18 @@ var learn: Control
 var tell: Control
 var slots: Array = []
 var option_buttons := {}
+var go_button: Button
+var again_button: Button
 
 
 func build() -> void:
 	icons = data["icons"]
 	header("Komşuya Haber", "")
+	# düğmeler sol sütunda: ekran ne kadar kısa olursa olsun hep görünür
+	go_button = UI.button("Aklımda, götürüyorum", _show_tell, 18)
+	side.add_child(go_button)
+	again_button = UI.button("Teyze ne demişti?", _show_learn, 18)
+	side.add_child(again_button)
 	learn = _build_learn()
 	tell = _build_tell()
 	_show_learn()
@@ -32,12 +39,16 @@ func _page() -> VBoxContainer:
 
 func _build_learn() -> Control:
 	var v := _page()
-	var t := Portrait.new(Vector2(104, 104))
-	t.size_flags_horizontal = SIZE_SHRINK_CENTER
-	v.add_child(t)
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 10)
+	var t := Portrait.new(Vector2(96, 96))
+	t.size_flags_vertical = SIZE_SHRINK_CENTER
+	top.add_child(t)
 	var p := PanelContainer.new()
+	p.size_flags_horizontal = SIZE_EXPAND_FILL
 	p.add_child(UI.label("“%s”" % data["text"], 22, UI.INK, true))
-	v.add_child(p)
+	top.add_child(p)
+	v.add_child(top)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	var many := icons.size() > 3  # 4 kart ekrana sığsın diye biraz küçült
@@ -53,8 +64,6 @@ func _build_learn() -> Control:
 		card.add_child(c)
 		row.add_child(card)
 	v.add_child(row)
-	v.add_child(UI.spacer())
-	v.add_child(UI.button("Aklımda, götürüyorum", _show_tell))
 	return v
 
 
@@ -89,22 +98,22 @@ func _build_tell() -> Control:
 		option_buttons[k] = b
 		grid.add_child(b)
 	v.add_child(grid)
-
-	var again := UI.button("Teyze ne demişti?", _show_learn, 18)
-	again.custom_minimum_size.y = 44
-	v.add_child(again)
 	return v
 
 
 func _show_learn() -> void:
 	learn.visible = true
 	tell.visible = false
+	go_button.visible = true
+	again_button.visible = false
 	say("Teyzenin sözünü aklında tut. İstediğin kadar bakabilirsin.")
 
 
 func _show_tell() -> void:
 	learn.visible = false
 	tell.visible = true
+	go_button.visible = false
+	again_button.visible = true
 	say("%s: Hoş geldin evladım! Fatma ne dedi? Sırasıyla seç." % Errands.KOMSU)
 
 

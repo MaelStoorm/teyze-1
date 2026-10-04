@@ -21,6 +21,7 @@ var hud_level: Label
 var hud_xp: ProgressBar
 var shop_button: Button
 var settings_button: Button
+var joystick: Joystick
 var bottom_bar: HBoxContainer
 var hud_panel: PanelContainer
 var tutorial_step := -1
@@ -58,19 +59,28 @@ func _ready() -> void:
 	overlay.add_child(UI.spacer())
 	bottom_bar = HBoxContainer.new()
 	bottom_bar.mouse_filter = MOUSE_FILTER_IGNORE
-	settings_button = UI.button("", _open_settings, 20)
-	settings_button.icon = UI.tex("ayar")
-	settings_button.add_theme_constant_override("icon_max_width", 34)
-	settings_button.custom_minimum_size = Vector2(60, 56)
-	bottom_bar.add_child(settings_button)
+	joystick = Joystick.new()
+	bottom_bar.add_child(joystick)
+	world.joystick = joystick
 	var gap := Control.new()
 	gap.size_flags_horizontal = SIZE_EXPAND_FILL
 	gap.mouse_filter = MOUSE_FILTER_IGNORE
 	bottom_bar.add_child(gap)
+	settings_button = UI.button("", _open_settings, 20)
+	settings_button.icon = UI.tex("ayar")
+	settings_button.add_theme_constant_override("icon_max_width", 34)
+	settings_button.custom_minimum_size = Vector2(60, 56)
+	settings_button.size_flags_vertical = SIZE_SHRINK_END
+	bottom_bar.add_child(settings_button)
+	var gap1 := Control.new()
+	gap1.custom_minimum_size.x = 10
+	gap1.mouse_filter = MOUSE_FILTER_IGNORE
+	bottom_bar.add_child(gap1)
 	friends_button = UI.button("", _open_friends, 20)
 	friends_button.icon = UI.tex("heart")
 	friends_button.add_theme_constant_override("icon_max_width", 34)
 	friends_button.custom_minimum_size = Vector2(60, 56)
+	friends_button.size_flags_vertical = SIZE_SHRINK_END
 	bottom_bar.add_child(friends_button)
 	var gap2 := Control.new()
 	gap2.custom_minimum_size.x = 10
@@ -80,6 +90,7 @@ func _ready() -> void:
 	shop_button.icon = UI.tex("file")
 	shop_button.add_theme_constant_override("icon_max_width", 34)
 	shop_button.custom_minimum_size = Vector2(150, 56)
+	shop_button.size_flags_vertical = SIZE_SHRINK_END
 	bottom_bar.add_child(shop_button)
 	overlay.add_child(bottom_bar)
 	_build_dialog()
@@ -386,9 +397,10 @@ func _on_tapped(id: String) -> void:
 		return
 	busy = true
 	Sfx.play("tap")
-	await world.walk_to_target(id)
+	var arrived: bool = await world.walk_to_target(id)
 	busy = false
-	_interact(id)
+	if arrived:  # yolda yürüme koluyla başka yöne gidildiyse vazgeç
+		_interact(id)
 
 
 ## Yürüdükten sonraki etkileşim (testler doğrudan bunu çağırır).

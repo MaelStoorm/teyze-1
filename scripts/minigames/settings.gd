@@ -1,5 +1,5 @@
 extends Minigame
-## Ayarlar: yazı boyutu, ses, müzik, rehber, sıfırlama.
+## Ayarlar: yazı boyutu, ses, müzik, grafik, rehber, sıfırlama.
 
 signal show_tutorial
 signal edit_avatar
@@ -26,6 +26,11 @@ func build() -> void:
 	box.add_child(_row("Müzik", [["Açık", true], ["Kapalı", false]], "music",
 		func(v): GameState.set_setting("music", v); Sfx.set_music(v)))
 
+	box.add_child(_row("Grafik", [["Hızlı", 0], ["Dengeli", 1], ["Güzel", 2]], "grafik",
+		func(v):
+			if v != GameState.settings["grafik"]:
+				GameState.set_setting("grafik", v)
+				get_tree().reload_current_scene()))
 	box.add_child(UI.button("Karakterini değiştir", func(): edit_avatar.emit()))
 	box.add_child(UI.button("Rehberi tekrar göster", func(): show_tutorial.emit()))
 	reset_button = UI.button("Oyunu sıfırla", _reset, 20)
