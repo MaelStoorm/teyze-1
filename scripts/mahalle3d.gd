@@ -49,12 +49,18 @@ var sutlu: Node3D
 var sutlu_follow := false
 ## Uçan böcekler: {"node", "center", "r", "speed", "phase", "kind"}
 var _flyers: Array[Dictionary] = []
+const PLAYER_SPEED := 2.6
+## Yürüme kolu (main bağlar); sürülürken dokunarak yürüme iptal olur.
+var joystick: Joystick
+var _driving := false
+var _walk_id := 0
+var _walk_pending := false
 
 
 func _ready() -> void:
 	super()
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	viewport.positional_shadow_atlas_size = 2048
+	viewport.positional_shadow_atlas_size = 0  # noktasal ışık yok
 	_build()
 
 
@@ -80,10 +86,12 @@ func _build() -> void:
 	sun.light_color = Color("fff3dc")
 	sun.light_energy = 0.8
 	sun.light_specular = 0.35
-	sun.shadow_enabled = true
+	sun.shadow_enabled = GameState.settings.get("grafik", 1) > 0
 	sun.shadow_opacity = 0.6
 	sun.shadow_blur = 1.5
-	sun.directional_shadow_max_distance = 30.0
+	# tek geçişli gölge: varsayılan dört parçalı gölge her şeyi dört kez çizer
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+	sun.directional_shadow_max_distance = 24.0
 	root.add_child(sun)
 
 	camera = Camera3D.new()
@@ -202,6 +210,27 @@ func _build() -> void:
 	refresh_decor()
 	refresh_neighbors()
 	_update_blockers()
+	_optimize()
+
+
+## Hareketsiz her şeyi birkaç büyük meshe birleştirir; hareket edenler
+## eklem eklem birleşir. Telefonda çizim yükünü onlarca kat azaltır.
+func _optimize() -> void:
+	var moving: Array = [teyze, player]
+	moving.append_array(neighbors.values())
+	moving.append_array(_ducks)
+	for f in _flyers:
+		moving.append(f["node"])
+	for id in wanderers:
+		moving.append(targets[id]["node"])
+	var keep: Array = moving.duplicate()
+	keep.append(_marker)
+	keep.append_array(_decor_nodes.values())
+	Bake.merge_static(_root, keep)
+	for n in moving:
+		Bake.merge_rig(n)
+	for n in _decor_nodes.values():
+		Bake.merge_rig(n)
 
 
 ## Mahallenin çevresi: dere ve köprü, çiçek bahçesi ve arı kovanları,
@@ -361,8 +390,9 @@ func _make_player(pos: Vector3, rot_y: float) -> void:
 	player.rotation.y = rot_y
 	player.scale = Vector3.ONE * 1.4
 	_root.add_child(player)
+	Bake.merge_rig(player)
 	player_walker = Walker.new()
-	player_walker.speed = 2.6
+	player_walker.speed = PLAYER_SPEED
 	player_walker.bounds = BOUNDS
 	player.add_child(player_walker)
 	player_walker.arrived.connect(_on_player_arrived)
@@ -399,6 +429,7 @@ func refresh_decor() -> void:
 			n.position = d["pos"]
 			n.rotation_degrees.y = d["rot"]
 			_root.add_child(n)
+			Bake.merge_rig(n)
 			_decor_nodes[id] = n
 			_update_blockers()
 		elif not GameState.decor.has(id) and _decor_nodes.has(id):
@@ -417,6 +448,7 @@ func refresh_neighbors() -> void:
 		body.rotation.y = randf_range(-0.6, 0.6)
 		body.scale = Vector3.ONE * 1.4
 		_root.add_child(body)
+		Bake.merge_rig(body)
 		var w := Walker.new()
 		w.speed = 1.1  # teyzeler acele etmez
 		w.bounds = BOUNDS
@@ -602,9 +634,29 @@ func _process(delta: float) -> void:
 	camera.look_at_from_position(_cam_focus + CAM_OFFSET, _cam_focus)
 	if _marker.visible:
 		_marker.scale = _marker.scale.lerp(Vector3.ONE * 0.4, delta * 3.0)
+	_drive()
 	_wander(delta)
 	_swim()
 	_fly()
+
+
+## Yürüme koluyla sürme: kolun yönünde (ekranın yukarısı kuzey) yürür.
+func _drive() -> void:
+	var v := joystick.value if joystick and joystick.is_visible_in_tree() else Vector2.ZERO
+	if v.length() < 0.15:
+		if _driving:
+			_driving = false
+			player_walker.stop()
+			player_walker.speed = PLAYER_SPEED
+		return
+	if not _driving:
+		_driving = true
+		_marker.visible = false
+		_walk_id += 1
+		if _walk_pending:  # bir yere yürünüyorsa o yürüyüş biter (iptal)
+			player_walker.arrived.emit()
+	player_walker.speed = PLAYER_SPEED * clampf(v.length() * 1.25, 0.45, 1.15)
+	player_walker.walk_to(player.position + Vector3(v.x, 0, v.y).normalized() * 0.6)
 
 
 func _wander(delta: float) -> void:
@@ -671,6 +723,7 @@ func _gui_input(event: InputEvent) -> void:
 	if absf(dir.y) < 0.001:
 		return
 	var hit := origin + dir * (-origin.y / dir.y)
+	_walk_id += 1  # bir kişiye gidiliyorsa vazgeçilir
 	player_walker.walk_to(hit)
 	_marker.position = player_walker.target + Vector3(0, 0.05, 0)
 	_marker.scale = Vector3.ONE
@@ -699,10 +752,15 @@ func _on_player_arrived() -> void:
 
 
 ## Oyuncuyu bir kişinin ya da yerin yanına yürütür; kişi durup ona döner.
-func walk_to_target(id: String) -> void:
+## Yolda yürüme kolu kullanılırsa false döner.
+func walk_to_target(id: String) -> bool:
 	var t: Dictionary = targets.get(id, {})
 	if t.is_empty():
-		return
+		return false
+	if _driving:
+		return false
+	_walk_id += 1
+	var my_walk := _walk_id
 	var node: Node3D = t["node"]
 	var w: Walker = t.get("walker")
 	if w:
@@ -719,10 +777,17 @@ func walk_to_target(id: String) -> void:
 	_marker.visible = false
 	if player.position.distance_to(spot) > 0.15:
 		player_walker.walk_to(spot)
+		_walk_pending = true
 		await player_walker.arrived
+		_walk_pending = false
+		if my_walk != _walk_id:
+			if w:
+				_talking = ""
+			return false
 	player_walker.face(node.position)
 	if w:
 		w.face(player.position)
+	return true
 
 
 func reset_player() -> void:

@@ -88,6 +88,24 @@ func _initialize() -> void:
 	gs.set_avatar({"gender": "erkek", "hair": 2, "name": "Ali"})
 	main.world.set_player_look(gs.avatar)
 	assert(gs.call_name() == "Ali")
+	# yürüme kolu: oyuncuyu kolun yönünde yürütür, yoldaki konuşmayı iptal eder
+	main._close_dialog()
+	main.world.player.position = Vector3(0.4, 0, 0.5)
+	var x0: float = main.world.player.position.x
+	assert(main.joystick.is_visible_in_tree(), "yürüme kolu görünmeli")
+	main.joystick.value = Vector2(1, 0)
+	await create_timer(0.6).timeout
+	assert(main.world.player.position.x > x0 + 0.8, "kol sağa itilince oyuncu sağa yürümeli")
+	main.joystick.value = Vector2.ZERO
+	await create_timer(0.1).timeout
+	main.world.player.position = Vector3(6, 0, 6)
+	main._on_tapped("fatma")
+	await create_timer(0.2).timeout
+	main.joystick.value = Vector2(0, 1)
+	await create_timer(0.3).timeout
+	main.joystick.value = Vector2.ZERO
+	await create_timer(0.1).timeout
+	assert(not main.busy and not main.dialog.visible, "kol kullanılınca teyzeye gitme iptal olmalı")
 	print("Komşular: kalpler %s, kurabiye %d" % [gs.friendship, gs.kurabiye])
 	print("TAMAM: 6 gün oynandı, yeni görevler açıldı, dükkan ve komşular çalışıyor")
 	quit(0)

@@ -29,7 +29,7 @@ var errands_date := ""
 ## Kaç gündür üst üste gelindi.
 var streak := 0
 ## Oyuncu ayarları: yazı boyutu çarpanı, ses, müzik, rehber görüldü mü.
-var settings := {"text": 1.0, "sound": true, "music": true, "tutorial": false}
+var settings := {"text": 1.0, "sound": true, "music": true, "tutorial": false, "grafik": 1}
 ## Henüz gösterilmemiş günlük hediye (kurabiye). Ana ekran gösterip sıfırlar.
 var daily_gift := 0
 ## Komşularla dostluk: id -> kalp sayısı.
