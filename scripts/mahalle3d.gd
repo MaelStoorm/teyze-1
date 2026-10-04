@@ -12,6 +12,8 @@ var camera: Camera3D
 var teyze: Node3D
 var player: Node3D
 var bubble: Label3D
+var _root: Node3D
+var _decor_nodes := {}
 var _t := 0.0
 
 
@@ -28,6 +30,7 @@ func _ready() -> void:
 func _build() -> void:
 	seed(4)  # süslerin rastgele dizilimi hep aynı olsun
 	var root := Node3D.new()
+	_root = root
 	viewport.add_child(root)
 
 	var env := WorldEnvironment.new()
@@ -98,6 +101,23 @@ func _build() -> void:
 	bubble.no_depth_test = true
 	bubble.position = TEYZE_SPOT + Vector3(0, 3.0, 0)
 	root.add_child(bubble)
+	refresh_decor()
+
+
+## Satın alınmış süsleri mahalleye koyar (yenileri ekler).
+func refresh_decor() -> void:
+	seed(11)
+	for d in Decor.ALL:
+		var id: String = d["id"]
+		if GameState.decor.has(id) and not _decor_nodes.has(id):
+			var n := Decor.build(id)
+			n.position = d["pos"]
+			n.rotation_degrees.y = d["rot"]
+			_root.add_child(n)
+			_decor_nodes[id] = n
+		elif not GameState.decor.has(id) and _decor_nodes.has(id):
+			_decor_nodes[id].queue_free()
+			_decor_nodes.erase(id)
 
 
 func _place(root: Node3D, n: Node3D, pos: Vector3, rot_y := 0.0) -> void:

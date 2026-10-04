@@ -38,6 +38,13 @@ func _initialize() -> void:
 	assert(gs.streak == 4 and gs.daily_gift == 6 and gs.day == day_before + 1)
 	gs.errands_date = Time.get_date_string_from_unix_time(Time.get_unix_time_from_system() - 3 * 86400)
 	assert(gs.check_new_day() and gs.streak == 1, "ara verilince seri sıfırlanmalı")
+	# süsler
+	gs.kurabiye = 25
+	assert(gs.buy_decor("kedievi") and gs.kurabiye == 5)
+	assert(not gs.buy_decor("kedievi"), "aynı süs iki kez alınmamalı")
+	assert(not gs.buy_decor("fener"), "parası yetmeyen süs alınmamalı")
+	main.world.refresh_decor()
+	assert(main.world._decor_nodes.has("kedievi"))
 	print("TAMAM: 6 gün oynandı, yeni görevler açıldı, dükkan çalışıyor")
 	quit(0)
 

@@ -132,6 +132,7 @@ func _refresh() -> void:
 		if i >= GameState.done_count:
 			heart.modulate = Color(0, 0, 0, 0.25)
 		hud_hearts.add_child(heart)
+	world.refresh_decor()
 	world.bubble.visible = not GameState.is_day_over() and game == null
 	world.visible = game == null
 	bottom_bar.visible = game == null and not dialog.visible
@@ -340,6 +341,7 @@ func _screenshot_tour(dir: String) -> void:
 	GameState.reset()
 	GameState.xp = 125
 	GameState.kurabiye = 47
+	GameState.decor = {"kedievi": true, "semaver": true, "cesme": true, "cardak": true, "gul": true, "fener": true}
 	GameState.new_day(false)
 	_tutorial(3)
 	await _shot(dir, "1_rehber")
@@ -366,6 +368,10 @@ func _screenshot_tour(dir: String) -> void:
 		_quit_game()
 	_open_shop()
 	await _shot(dir, "4_dukkan")
+	GameState.decor = {"kedievi": true, "cesme": true}
+	game.set("tab", "decor")
+	game.call("_fill")
+	await _shot(dir, "4_dukkan_susler")
 	_quit_game()
 	_open_settings()
 	await _shot(dir, "5_ayarlar")
