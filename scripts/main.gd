@@ -27,6 +27,10 @@ var hud_panel: PanelContainer
 var tutorial_step := -1
 var hint_panel: PanelContainer
 var drop_button: Button
+var album_button: Button
+var _toasts: Array[String] = []
+var _toast_busy := false
+var _world_check := 0.0
 var hint_label: Label
 var level_note := ""
 var hud_hearts: HBoxContainer
@@ -70,6 +74,16 @@ func _ready() -> void:
 	gap.size_flags_horizontal = SIZE_EXPAND_FILL
 	gap.mouse_filter = MOUSE_FILTER_IGNORE
 	bottom_bar.add_child(gap)
+	album_button = UI.button("", _open_album, 20)
+	album_button.icon = UI.tex("album")
+	album_button.add_theme_constant_override("icon_max_width", 34)
+	album_button.custom_minimum_size = Vector2(60, 56)
+	album_button.size_flags_vertical = SIZE_SHRINK_END
+	bottom_bar.add_child(album_button)
+	var gap4 := Control.new()
+	gap4.custom_minimum_size.x = 10
+	gap4.mouse_filter = MOUSE_FILTER_IGNORE
+	bottom_bar.add_child(gap4)
 	settings_button = UI.button("", _open_settings, 20)
 	settings_button.icon = UI.tex("ayar")
 	settings_button.add_theme_constant_override("icon_max_width", 34)
@@ -120,6 +134,7 @@ func _ready() -> void:
 	_build_hint()
 	_build_dialog()
 	GameState.changed.connect(_refresh)
+	GameState.remembered.connect(func(id): _toasts.append(id); _next_toast())
 	GameState.leveled_up.connect(_on_level_up)
 	Sfx.set_music(GameState.settings["music"])
 	_refresh()
@@ -673,6 +688,7 @@ func _finish_task() -> void:
 	world.set_carry("")
 	level_note = ""
 	if info.get("tutorial", false):  # rehberdeki ilk iş: günün işlerinden sayılmaz
+		GameState.remember("ilk_is")
 		GameState.add_kurabiye(TUT_REWARD)
 		Sfx.play("levelup", -4.0)
 		_say("Eline sağlık evladım, domatesler mis gibi! Al bakalım, ilk %d kurabiyen." % TUT_REWARD,
@@ -861,7 +877,22 @@ func _build_hint() -> void:
 	add_child(hint_panel)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	# mahallede gezerken sabah, gece ve yağmur anıları
+	_world_check -= delta
+	if _world_check <= 0.0:
+		_world_check = 3.0
+		if game == null and world.visible and tutorial_step < 0 and GameState.settings["tutorial"]:
+			var ph := Mahalle3D.phase_now()
+			var got := false
+			if ph == "sabah":
+				got = GameState.remember("sabah") or got
+			elif ph == "gece":
+				got = GameState.remember("gece") or got
+			if GameState.is_rainy():
+				got = GameState.remember("yagmur") or got
+			if got:
+				GameState.save_game()
 	# rehberde teyzenin yanına kendi yürüyerek de varılabilir
 	if _tut_kind() == "walk" and not busy and not dialog.visible \
 			and world.player.position.distance_to(world.teyze.position) < 2.2:
@@ -913,6 +944,59 @@ func _pulse(node: Control) -> void:
 	tw.tween_property(node, "modulate", Color.WHITE, 0.35)
 
 
+## Mahalle albümü: açılan anı kartları.
+func _open_album() -> void:
+	if game != null or busy or tutorial_step >= 0:
+		return
+	_close_dialog()
+	game = load("res://scripts/minigames/album.gd").new().setup({})
+	add_child(game)
+	var back := UI.button("Mahalleye dön", _quit_game, 18)
+	back.custom_minimum_size = Vector2(180, 48)
+	game.add_back(back)
+	_refresh()
+
+
+## Albüme yeni anı eklenince üstte kısa bir kart kayarak görünür.
+func _next_toast() -> void:
+	if _toast_busy or _toasts.is_empty():
+		return
+	_toast_busy = true
+	var card := Album.get_card(_toasts.pop_front())
+	var p := PanelContainer.new()
+	p.add_theme_stylebox_override("panel", UI.box(Color("fffaf0"), Color(card["color"]), 4, 10))
+	p.mouse_filter = MOUSE_FILTER_IGNORE
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 10)
+	h.add_child(UI.sprite(card["icon"], 40))
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 0)
+	var l1 := UI.label("Albüme yeni anı", 15, Color("8a6a4a"))
+	l1.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	v.add_child(l1)
+	var l2 := UI.label(card["title"], 21)
+	l2.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	v.add_child(l2)
+	h.add_child(v)
+	p.add_child(h)
+	p.anchor_left = 0.5
+	p.anchor_right = 0.5
+	p.grow_horizontal = GROW_DIRECTION_BOTH
+	p.offset_top = -90
+	p.offset_bottom = -90
+	add_child(p)
+	Sfx.play("levelup", -8.0, 1.2)
+	var tw := p.create_tween()
+	tw.tween_method(func(y: float): p.offset_top = y; p.offset_bottom = y, -90.0, 10.0, 0.35) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(2.4)
+	tw.tween_property(p, "modulate:a", 0.0, 0.4)
+	tw.tween_callback(func():
+		p.queue_free()
+		_toast_busy = false
+		_next_toast())
+
+
 ## Kendi evinin içi: kurabiyeyle eşya alıp yerleştirme.
 func _open_home() -> void:
 	if game != null or busy or tutorial_step >= 0:
@@ -943,6 +1027,8 @@ func _on_fun_finished(success: bool, kind: String, who: String) -> void:
 	game.queue_free()
 	game = null
 	var key := "oyun_" + kind
+	if success and kind != "tavla" and GameState.remember(kind):  # tavla kendi sayar
+		GameState.save_game()
 	var first := not GameState.gifts_today.has(key)
 	var reward := 0
 	if first:
@@ -1201,6 +1287,16 @@ func _screenshot_tour(dir: String) -> void:
 	_talk_neighbor("ahmet")
 	await _shot(dir, "8_ahmet")
 	_close_dialog()
+	_toasts.clear()
+	await get_tree().create_timer(4.0).timeout  # önceki anı kartları geçsin
+	GameState.remember("cay")
+	await get_tree().create_timer(0.4).timeout
+	await _shot(dir, "9_ani_karti")
+	_open_album()
+	await _shot(dir, "9_album")
+	game.call("_show", Album.get_card("cay"), game)
+	await _shot(dir, "9_album_not")
+	_quit_game()
 	UI.text_scale = 1.2
 	_start_game("yemek", Errands.build({"type": "yemek", "seed": 3, "level": 5}))
 	await _shot(dir, "6_buyuk_yazi")
