@@ -61,6 +61,7 @@ func say(text: String, color := UI.INK) -> void:
 
 func win(text: String) -> void:
 	say(text, UI.GOOD)
+	Sfx.play("win")
 	mouse_filter = MOUSE_FILTER_STOP
 	await get_tree().create_timer(1.3).timeout
 	finished.emit(true)

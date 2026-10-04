@@ -103,6 +103,7 @@ func _stir() -> void:
 		return
 	stirs += 1
 	bar.value = stirs
+	Sfx.play("stir", -2.0, randf_range(0.9, 1.2))
 	pot.pivot_offset = pot.size / 2
 	var tw := pot.create_tween()
 	tw.tween_property(pot, "rotation", 0.12 if stirs % 2 else -0.12, 0.06)

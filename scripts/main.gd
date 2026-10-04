@@ -42,8 +42,9 @@ func _ready() -> void:
 	_build_dialog()
 	GameState.changed.connect(_refresh)
 	GameState.leveled_up.connect(_on_level_up)
+	Sfx.set_music(true)
 	_refresh()
-	if GameState.done_count == 0 and GameState.day == 1:
+	if not _show_daily_gift() and GameState.done_count == 0 and GameState.day == 1:
 		_say("Hoş geldin evladım! Bana bir dokun bakayım, işlerim var.", [["Tamam teyzecim", _close_dialog]])
 	var shots := _arg("--shots")
 	if shots != "":
@@ -169,11 +170,12 @@ func _on_teyze() -> void:
 	if busy or game != null:
 		return
 	busy = true
+	Sfx.play("tap")
 	await world.walk_to_teyze()
 	busy = false
 	if GameState.is_day_over():
 		_say("Bugünlük bu kadar evladım. Yarın yine gel, sana kurabiye ayırdım.",
-			[["Yeni gün (deneme)", _new_day]])
+			[["Yarın görüşürüz teyzecim", _close_dialog]])
 		return
 	var errand := GameState.current_errand()
 	var info := Errands.build(errand)
@@ -224,6 +226,7 @@ func _on_game_finished(_success: bool, info: Dictionary) -> void:
 
 
 func _on_level_up(lv: int) -> void:
+	Sfx.play("levelup")
 	level_note = "\n\nSeviye atladın, artık Sv %d!" % lv
 	for t in GameState.UNLOCKS:
 		if GameState.UNLOCKS[t] == lv:
@@ -232,10 +235,26 @@ func _on_level_up(lv: int) -> void:
 		level_note += " Artık günde bir görev fazla var."
 
 
-func _new_day() -> void:
-	GameState.new_day()
-	world.reset_player()
-	_say("Günaydın evladım! Yeni günde yeni işler var.", [["Günaydın teyzecim", _close_dialog]])
+## Uygulamaya geri dönülünce gün değiştiyse yeni günü başlatır.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_RESUMED or what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		if is_node_ready() and game == null and GameState.check_new_day():
+			world.reset_player()
+			_show_daily_gift()
+
+
+func _show_daily_gift() -> bool:
+	if GameState.daily_gift <= 0:
+		return false
+	var gift := GameState.daily_gift
+	GameState.daily_gift = 0
+	var text := "Günaydın evladım! Bugün de geldin, al sana %d kurabiye." % gift
+	if GameState.streak > 1:
+		text += " %d gündür hiç aksatmadın, maşallah!" % GameState.streak
+	text += " Yeni günde yeni işler var."
+	Sfx.play("coin")
+	_say(text, [["Günaydın teyzecim", _close_dialog]])
+	return true
 
 
 # --- ekran görüntüsü turu (geliştirme için) -------------------------------------

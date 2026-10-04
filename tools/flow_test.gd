@@ -29,6 +29,15 @@ func _initialize() -> void:
 	gs.kurabiye = 100
 	assert(gs.buy_perk("dua"))
 	assert(gs.errand_reward("kedi") == 4)
+	# takvim: dün oynanmışsa bugün yeni gün, seri artar, hediye gelir
+	assert(not gs.check_new_day(), "aynı gün ikinci kez yeni gün olmamalı")
+	var day_before: int = gs.day
+	gs.errands_date = Time.get_date_string_from_unix_time(Time.get_unix_time_from_system() - 86400)
+	gs.streak = 3
+	assert(gs.check_new_day())
+	assert(gs.streak == 4 and gs.daily_gift == 6 and gs.day == day_before + 1)
+	gs.errands_date = Time.get_date_string_from_unix_time(Time.get_unix_time_from_system() - 3 * 86400)
+	assert(gs.check_new_day() and gs.streak == 1, "ara verilince seri sıfırlanmalı")
 	print("TAMAM: 6 gün oynandı, yeni görevler açıldı, dükkan çalışıyor")
 	quit(0)
 

@@ -103,6 +103,7 @@ func _offer(k: String, b: Button) -> void:
 	data["bonus"] = gold
 	visited[current] = true
 	gold_label.text = "%d çeyrek" % gold
+	Sfx.play("coin")
 	UI.pop(gold_label)
 	current = -1
 	if visited.size() == guests.size():

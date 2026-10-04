@@ -37,6 +37,7 @@ func _tap(i: int, b: TextureButton) -> void:
 		return
 	if i == cat_spot:
 		found = true
+		Sfx.play("meow")
 		var cat := UI.sprite("cat", 70)
 		add_child(cat)
 		cat.position = b.position + Vector2(b.size.x / 2 - cat.size.x / 2, -20)
@@ -55,6 +56,7 @@ func _tap(i: int, b: TextureButton) -> void:
 		say("Zil sesi! Çın çın... Pamuk parlayan yerde.", UI.GOOD)
 		return
 	say("Burada yok. Miyav sesi %s geliyor." % _direction(i), UI.ACCENT)
+	Sfx.play("meow", -14.0, 1.15)
 
 
 func _direction(from: int) -> String:
