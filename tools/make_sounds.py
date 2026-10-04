@@ -270,7 +270,8 @@ def sfx():
     morph = x / dur
     f0 = 600 + 330 * np.sin(np.pi * morph) ** 1.5 - 150 * morph
     v = voice(f0, [(2000 - 1200 * morph, 450, 1.0), (900, 300, 0.4)], 0.4, 12)
-    save("meow", lowpass(v * env(len(x), 0.05, release=0.15), 4000), 0.42)
+    if False:  # artık gerçek kayıt (assets/sounds/HAYVAN_SESLERI_LISANS.txt)
+        save("meow", lowpass(v * env(len(x), 0.05, release=0.15), 4000), 0.42)
 
     # whoosh: havadar, yumuşak hışırtı (boğuktan parlağa geçen süzgeç)
     sec = 0.4
@@ -294,7 +295,8 @@ def sfx():
     f0 = 185 + 35 * np.sin(np.pi * m * 0.8) - 45 * m ** 2 + 2.5 * np.sin(2 * np.pi * 5 * x)
     opn = np.minimum(1, m * 4)
     v = voice(f0, [(260 + 200 * opn, 150, 1.0), (650 + 250 * opn, 250, 0.5)], 0.35, 30)
-    save("moo", lowpass(v * env(len(x), 0.08, release=0.2), 2200), 0.42)
+    if False:  # artık gerçek kayıt (assets/sounds/HAYVAN_SESLERI_LISANS.txt)
+        save("moo", lowpass(v * env(len(x), 0.08, release=0.2), 2200), 0.42)
 
     # cluck: "gıt gıt gıdak"
     def bok(sec, fa, fb):
@@ -302,7 +304,8 @@ def sfx():
         f = fb + (fa - fb) * np.exp(-xx / (sec * 0.4))
         vv = voice(f, [(1300, 400, 1.0), (2500, 500, 0.3)], 0.25, 14)
         return vv * env(len(xx), 0.004, sec * 0.45, 0.02)
-    save("cluck", lowpass(mix((0, bok(0.09, 680, 470)), (0.13, bok(0.09, 700, 480)),
+    if False:  # artık gerçek kayıt (assets/sounds/HAYVAN_SESLERI_LISANS.txt)
+        save("cluck", lowpass(mix((0, bok(0.09, 680, 470)), (0.13, bok(0.09, 700, 480)),
                               (0.29, bok(0.17, 820, 520))), 3800), 0.38)
 
     # quack: kısa, sevimli "vak"
@@ -311,7 +314,8 @@ def sfx():
     f0 = 300 + 130 * np.exp(-x / 0.08)
     v = voice(f0, [(1100, 300, 1.0), (2100, 400, 0.5)], 0.15, 20)
     shape = np.sin(np.pi * np.minimum(1, x / sec)) ** 0.6
-    save("quack", lowpass(v * shape * env(len(x), 0.008, release=0.04), 3800), 0.38)
+    if False:  # artık gerçek kayıt (assets/sounds/HAYVAN_SESLERI_LISANS.txt)
+        save("quack", lowpass(v * shape * env(len(x), 0.008, release=0.04), 3800), 0.38)
 
     # woof: küçük köpek "hav"
     sec = 0.2
@@ -319,7 +323,8 @@ def sfx():
     f0 = 200 + 150 * np.exp(-x / 0.05)
     v = voice(f0, [(650, 250, 1.0), (1250, 300, 0.45)], 0.45, 20)
     breath = soft_noise(sec, lo=300, hi=1500) * 0.06
-    save("woof", lowpass((v / 3 + breath) * env(len(x), 0.008, 0.09, 0.03), 2800), 0.42)
+    if False:  # artık gerçek kayıt (assets/sounds/HAYVAN_SESLERI_LISANS.txt)
+        save("woof", lowpass((v / 3 + breath) * env(len(x), 0.008, 0.09, 0.03), 2800), 0.42)
 
 
 # --- müzik --------------------------------------------------------------------

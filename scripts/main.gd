@@ -29,6 +29,7 @@ var level_note := ""
 var hud_hearts: HBoxContainer
 var dialog: PanelContainer
 var dialog_text: Label
+var dialog_scroll: ScrollContainer
 var dialog_name: Label
 var dialog_face: Portrait
 var dialog_who := ""
@@ -47,6 +48,8 @@ var top_row: HBoxContainer
 
 func _ready() -> void:
 	UI.text_scale = GameState.settings["text"]
+	if _arg("--text") != "":  # ekran görüntüsü turu büyük yazıyla da denenir
+		UI.text_scale = float(_arg("--text"))
 	theme = UI.make_theme()
 	_build_world()
 	overlay = UI.page(self, 10)
@@ -59,9 +62,6 @@ func _ready() -> void:
 	overlay.add_child(UI.spacer())
 	bottom_bar = HBoxContainer.new()
 	bottom_bar.mouse_filter = MOUSE_FILTER_IGNORE
-	joystick = Joystick.new()
-	bottom_bar.add_child(joystick)
-	world.joystick = joystick
 	var gap := Control.new()
 	gap.size_flags_horizontal = SIZE_EXPAND_FILL
 	gap.mouse_filter = MOUSE_FILTER_IGNORE
@@ -93,6 +93,16 @@ func _ready() -> void:
 	shop_button.size_flags_vertical = SIZE_SHRINK_END
 	bottom_bar.add_child(shop_button)
 	overlay.add_child(bottom_bar)
+	# yürüme kolu alt çubuğun dışında, sol altta: çubuk ince kalsın
+	joystick = Joystick.new()
+	joystick.anchor_top = 1.0
+	joystick.anchor_bottom = 1.0
+	joystick.offset_left = 12
+	joystick.offset_right = 136
+	joystick.offset_top = -136
+	joystick.offset_bottom = -12
+	add_child(joystick)
+	world.joystick = joystick
 	_build_dialog()
 	GameState.changed.connect(_refresh)
 	GameState.leveled_up.connect(_on_level_up)
@@ -202,6 +212,7 @@ func _refresh() -> void:
 	friends_button.visible = not GameState.neighbors_unlocked().is_empty()
 	world.visible = game == null
 	bottom_bar.visible = game == null and not dialog.visible
+	joystick.visible = bottom_bar.visible and tutorial_step < 0
 	top_row.visible = game == null and not dialog.visible
 	_refresh_task()
 
@@ -333,9 +344,14 @@ func _build_dialog() -> void:
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	dialog_name = name_label
 	tv.add_child(name_label)
+	# uzun yazılar (büyük yazı boyutunda) ekrandan taşmasın, kaysın
+	dialog_scroll = ScrollContainer.new()
+	dialog_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	tv.add_child(dialog_scroll)
 	dialog_text = UI.label("", 20, UI.INK, true)
 	dialog_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	tv.add_child(dialog_text)
+	dialog_text.size_flags_horizontal = SIZE_EXPAND_FILL
+	dialog_scroll.add_child(dialog_text)
 	top.add_child(tv)
 	dialog_buttons = GridContainer.new()
 	dialog_buttons.add_theme_constant_override("h_separation", 8)
@@ -346,6 +362,18 @@ func _build_dialog() -> void:
 	dialog.add_child(top)
 	dialog.visible = false
 	overlay.add_child(dialog)
+
+
+## Konuşma kutusunu yazıya göre boylandırır; ekrana sığmazsa kaydırılır.
+func _fit_dialog() -> void:
+	dialog_scroll.scroll_vertical = 0
+	await get_tree().process_frame
+	if not is_instance_valid(dialog_text):
+		return
+	var lines := dialog_text.get_line_count()
+	var need := lines * (dialog_text.get_line_height() + dialog_text.get_theme_constant("line_spacing")) + 4
+	var room := size.y - 20 - dialog_name.size.y - 30
+	dialog_scroll.custom_minimum_size.y = minf(need, room)
 
 
 ## buttons: [[metin, Callable], ...]. who: konuşanın id'si ("fatma", komşu,
@@ -380,6 +408,8 @@ func _say(text: String, buttons: Array, who := "") -> void:
 		dialog_buttons.add_child(b)
 	dialog.visible = true
 	bottom_bar.visible = false
+	joystick.visible = false
+	_fit_dialog()
 	top_row.visible = tutorial_step >= 0 and TUTORIAL[tutorial_step][1] == "hud"
 
 
@@ -568,17 +598,17 @@ func _talk_sutlu() -> void:
 	if GameState.sutlu_fed_today():
 		_say("Mırrr... Sütlü karnı tok, mutlu mutlu peşinden geliyor. Başını okşadın, gözlerini kıstı.",
 			[["Pisi pisi", _close_dialog]], "sutlu")
-		Sfx.play("meow", -4.0, 1.15)
+		Sfx.play("meow", -8.0, 1.1)
 		return
 	_say("Miyav! Sütlü sana bakıyor, kabı boş. Mama verelim mi?",
 		[["Mama ver", _feed_sutlu], ["Sonra", _close_dialog]], "sutlu")
-	Sfx.play("meow", -3.0)
+	Sfx.play("meow", -7.0)
 
 
 func _feed_sutlu() -> void:
 	var love := GameState.feed_sutlu()
 	world.feed_sutlu()
-	Sfx.play("meow", -2.0, 1.2)
+	Sfx.play("meow", -6.0, 1.12)
 	var text := "Sütlü mamasını afiyetle yedi! Artık bugün peşinden ayrılmaz."
 	match love:
 		3:
@@ -602,7 +632,7 @@ func _start_game(type: String, info: Dictionary) -> void:
 
 
 func _open_shop() -> void:
-	if game != null or busy:
+	if game != null or busy or tutorial_step >= 0:  # rehber sürerken açılmaz
 		return
 	_close_dialog()
 	game = SHOP.new().setup({})
@@ -615,7 +645,7 @@ func _open_shop() -> void:
 
 
 func _open_friends() -> void:
-	if game != null or busy:
+	if game != null or busy or tutorial_step >= 0:  # rehber sürerken açılmaz
 		return
 	_close_dialog()
 	game = KOMSULAR.new().setup({})
@@ -628,7 +658,7 @@ func _open_friends() -> void:
 
 
 func _open_settings() -> void:
-	if game != null or busy:
+	if game != null or busy or tutorial_step >= 0:  # rehber sürerken açılmaz
 		return
 	_close_dialog()
 	game = SETTINGS.new().setup({})
@@ -646,6 +676,7 @@ func _open_settings() -> void:
 
 const TUTORIAL := [
 	["Hoş geldin evladım! Ben Fatma Teyze. Mahallenin bütün işleri bende, sen de bana yardım edeceksin.", ""],
+	["Ekranda bir yere dokunursan oraya yürürsün. Sol alttaki yuvarlak kolu kaydırarak da gezebilirsin.", ""],
 	["Bana dokununca sana bir iş veririm. Her iş birkaç dakika sürer. Acele yok, istediğin an bırakıp sonra devam edebilirsin.", ""],
 	["İşi bitirince kurabiye kazanırsın. Üstteki kalpler bugünkü işlerin, yıldız da seviyen. Seviye atladıkça yeni işler açılır.", "hud"],
 	["Kurabiyelerinle Dükkan'dan işini kolaylaştıran hediyeler alırsın. Yazıyı büyütmek ya da sesi kısmak için de dişli düğmesine bas.", "bar"],
@@ -779,7 +810,7 @@ func _screenshot_tour(dir: String) -> void:
 	_quit_game()
 	GameState.avatar = {"gender": "kiz", "hair": 0, "hair_color": 1, "top": 1, "name": "Ayşe"}
 	world.set_player_look(GameState.avatar)
-	_tutorial(3)
+	_tutorial(4)
 	await _shot(dir, "1_rehber")
 	_tutorial(TUTORIAL.size())
 	await _shot(dir, "0_mahalle")

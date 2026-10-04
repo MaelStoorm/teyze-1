@@ -18,9 +18,9 @@ func build() -> void:
 	header("Komşuya Haber", "")
 	# düğmeler sol sütunda: ekran ne kadar kısa olursa olsun hep görünür
 	go_button = UI.button("Aklımda, götürüyorum", _show_tell, 18)
-	side.add_child(go_button)
+	add_action(go_button)
 	again_button = UI.button("Teyze ne demişti?", _show_learn, 18)
-	side.add_child(again_button)
+	add_action(again_button)
 	learn = _build_learn()
 	tell = _build_tell()
 	_show_learn()

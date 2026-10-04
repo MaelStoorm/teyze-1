@@ -8,8 +8,10 @@ signal finished(success: bool)
 var data: Dictionary
 var hint: Label
 var content: VBoxContainer
-## Yatay ekranda sol sütun: başlık, ipucu ve geri düğmesi.
+## Yatay ekranda sol sütun: başlık ve ipucu (kayar). Geri düğmesi altında
+## sabit durur; yazı büyük olsa da hep görünür.
 var side: VBoxContainer
+var _side_col: VBoxContainer
 
 
 func setup(d: Dictionary) -> Minigame:
@@ -39,11 +41,20 @@ func _ready() -> void:
 	cols.add_theme_constant_override("separation", 12)
 	cols.mouse_filter = MOUSE_FILTER_IGNORE
 	page.add_child(cols)
+	_side_col = VBoxContainer.new()
+	_side_col.custom_minimum_size.x = 210 * clampf(UI.text_scale, 1.0, 1.25)
+	_side_col.add_theme_constant_override("separation", 10)
+	_side_col.mouse_filter = MOUSE_FILTER_IGNORE
+	cols.add_child(_side_col)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_side_col.add_child(scroll)
 	side = VBoxContainer.new()
-	side.custom_minimum_size.x = 210
+	side.size_flags_horizontal = SIZE_EXPAND_FILL
 	side.add_theme_constant_override("separation", 10)
 	side.mouse_filter = MOUSE_FILTER_IGNORE
-	cols.add_child(side)
+	scroll.add_child(side)
 	content = VBoxContainer.new()
 	content.size_flags_horizontal = SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation", 10)
@@ -71,11 +82,17 @@ func header(title: String, text: String) -> PanelContainer:
 	return p
 
 
+## Sol sütunda kaymayan, hep görünen bir düğme (geri düğmesinin üstünde).
+func add_action(button: Button) -> void:
+	button.size_flags_horizontal = SIZE_FILL
+	_side_col.add_child(button)
+	_side_col.move_child(button, 1)
+
+
 ## Sol sütunun altına "geri" düğmesi.
 func add_back(button: Button) -> void:
-	side.add_child(UI.spacer())
 	button.size_flags_horizontal = SIZE_FILL
-	side.add_child(button)
+	_side_col.add_child(button)
 
 
 func say(text: String, color := UI.INK) -> void:
