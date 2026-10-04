@@ -32,7 +32,7 @@ func _page() -> VBoxContainer:
 
 func _build_learn() -> Control:
 	var v := _page()
-	var t := Portrait.new(Vector2(130, 130))
+	var t := Portrait.new(Vector2(104, 104))
 	t.size_flags_horizontal = SIZE_SHRINK_CENTER
 	v.add_child(t)
 	var p := PanelContainer.new()
@@ -40,15 +40,16 @@ func _build_learn() -> Control:
 	v.add_child(p)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 10)
+	var many := icons.size() > 3  # 4 kart ekrana sığsın diye biraz küçült
+	row.add_theme_constant_override("separation", 6 if many else 10)
 	for i in icons.size():
 		var card := PanelContainer.new()
 		var c := VBoxContainer.new()
 		c.add_child(UI.label(str(i + 1), 18, UI.ACCENT))
-		var s := UI.sprite(icons[i], 54)
+		var s := UI.sprite(icons[i], 46 if many else 54)
 		s.size_flags_horizontal = SIZE_SHRINK_CENTER
 		c.add_child(s)
-		c.add_child(UI.label(Errands.ICON_NAMES[icons[i]], 18))
+		c.add_child(UI.label(Errands.ICON_NAMES[icons[i]], 15 if many else 18))
 		card.add_child(c)
 		row.add_child(card)
 	v.add_child(row)

@@ -348,7 +348,7 @@ func _screenshot_tour(dir: String) -> void:
 	_tutorial(TUTORIAL.size())
 	await _shot(dir, "0_mahalle")
 	_on_teyze()
-	await get_tree().create_timer(0.8).timeout
+	await get_tree().create_timer(3.0).timeout
 	await _shot(dir, "2_gorev")
 	for type in ["pazar", "haber", "kedi", "yemek", "altin"]:
 		var info := Errands.build({"type": type, "seed": 7, "level": 5})
