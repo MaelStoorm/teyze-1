@@ -28,7 +28,7 @@ func _page() -> VBoxContainer:
 
 func _build_learn() -> Control:
 	var v := _page()
-	var t := UI.sprite("teyze", 4)
+	var t := Portrait.new(Vector2(130, 130))
 	t.size_flags_horizontal = SIZE_SHRINK_CENTER
 	v.add_child(t)
 	var p := PanelContainer.new()
@@ -41,7 +41,7 @@ func _build_learn() -> Control:
 		var card := PanelContainer.new()
 		var c := VBoxContainer.new()
 		c.add_child(UI.label(str(i + 1), 18, UI.ACCENT))
-		var s := UI.sprite(icons[i])
+		var s := UI.sprite(icons[i], 54)
 		s.size_flags_horizontal = SIZE_SHRINK_CENTER
 		c.add_child(s)
 		c.add_child(UI.label(Errands.ICON_NAMES[icons[i]], 18))
@@ -112,7 +112,10 @@ func _choose(k: String, b: Button) -> void:
 	var slot: PanelContainer = slots[step]
 	for c in slot.get_children():
 		c.queue_free()
-	slot.add_child(UI.sprite(k))
+	var got := UI.sprite(k, 52)
+	got.size_flags_horizontal = SIZE_SHRINK_CENTER
+	got.size_flags_vertical = SIZE_SHRINK_CENTER
+	slot.add_child(got)
 	slot.add_theme_stylebox_override("panel", UI.box(Color("dff0d0"), UI.GOOD, 4))
 	b.disabled = true
 	step += 1

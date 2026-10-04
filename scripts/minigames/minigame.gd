@@ -18,14 +18,19 @@ func setup(d: Dictionary) -> Minigame:
 func _ready() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	var bg := TextureRect.new()
-	bg.texture = UI.tex("grass")
-	bg.stretch_mode = TextureRect.STRETCH_TILE
+	var grad := Gradient.new()
+	grad.set_color(0, Color("a6d687"))
+	grad.set_color(1, Color("7fb862"))
+	var gt := GradientTexture2D.new()
+	gt.gradient = grad
+	gt.fill_from = Vector2(0, 0)
+	gt.fill_to = Vector2(0, 1)
+	bg.texture = gt
 	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	bg.scale = Vector2(UI.PX, UI.PX)
+	bg.stretch_mode = TextureRect.STRETCH_SCALE
+	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	bg.mouse_filter = MOUSE_FILTER_IGNORE
 	add_child(bg)
-	bg.size = get_viewport_rect().size / UI.PX + Vector2.ONE
-	resized.connect(func(): bg.size = size / UI.PX + Vector2.ONE)
 	content = UI.page(self)
 	build()
 

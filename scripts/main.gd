@@ -6,12 +6,8 @@ const MINIGAMES := {
 	"haber": preload("res://scripts/minigames/haber.gd"),
 	"kedi": preload("res://scripts/minigames/kedi.gd"),
 }
-const PX := UI.PX
 
-var world: Control
-var teyze: TextureButton
-var player: TextureRect
-var bubble: Label
+var world: Mahalle3D
 var hud_cookies: Label
 var hud_day: Label
 var hud_hearts: HBoxContainer
@@ -42,67 +38,9 @@ func _ready() -> void:
 # --- mahalle ---------------------------------------------------------------
 
 func _build_world() -> void:
-	world = Control.new()
-	world.scale = Vector2(PX, PX)
-	world.mouse_filter = MOUSE_FILTER_IGNORE
+	world = Mahalle3D.new()
+	world.teyze_tapped.connect(_on_teyze)
 	add_child(world)
-
-	var grass := _tile("grass", Rect2(0, 0, 96, 220))
-	grass.mouse_filter = MOUSE_FILTER_IGNORE
-	_tile("path", Rect2(0, 46, 96, 10))
-	_tile("path", Rect2(40, 56, 10, 164))
-
-	_prop("house", Vector2(4, 20))
-	_prop("neighbor_house", Vector2(56, 24))
-	_prop("pot", Vector2(36, 34))
-	_prop("tree", Vector2(66, 60))
-	_prop("tree", Vector2(2, 70))
-	_prop("bush", Vector2(20, 64))
-	_prop("stall", Vector2(56, 98))
-	_prop("crate", Vector2(4, 104))
-	_prop("bush", Vector2(70, 128))
-	_prop("pot", Vector2(26, 120))
-
-	teyze = TextureButton.new()
-	teyze.texture_normal = UI.tex("teyze")
-	teyze.position = Vector2(14, 38)
-	teyze.pressed.connect(_on_teyze)
-	world.add_child(teyze)
-	var tw := teyze.create_tween().set_loops()
-	tw.tween_property(teyze, "position:y", 37.0, 0.6).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(teyze, "position:y", 38.0, 0.6).set_trans(Tween.TRANS_SINE)
-
-	player = UI.sprite("player", 1)
-	player.position = Vector2(37, 80)
-	world.add_child(player)
-
-	# Teyzenin başındaki ünlem balonu (UI ölçeğinde)
-	bubble = UI.label("!", 34, UI.ACCENT)
-	bubble.add_theme_color_override("font_outline_color", Color.WHITE)
-	bubble.add_theme_constant_override("outline_size", 10)
-	bubble.position = Vector2(14 * PX + 22, 38 * PX - 52)
-	add_child(bubble)
-	var bt := bubble.create_tween().set_loops()
-	bt.tween_property(bubble, "position:y", bubble.position.y - 8, 0.4)
-	bt.tween_property(bubble, "position:y", bubble.position.y, 0.4)
-
-
-func _tile(name: String, rect: Rect2) -> TextureRect:
-	var r := TextureRect.new()
-	r.texture = UI.tex(name)
-	r.stretch_mode = TextureRect.STRETCH_TILE
-	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	r.position = rect.position
-	r.size = rect.size
-	r.mouse_filter = MOUSE_FILTER_IGNORE
-	world.add_child(r)
-	return r
-
-
-func _prop(name: String, pos: Vector2) -> void:
-	var s := UI.sprite(name, 1)
-	s.position = pos
-	world.add_child(s)
 
 
 # --- üst bilgi -----------------------------------------------------------------
@@ -112,7 +50,7 @@ func _build_hud() -> void:
 	p.add_theme_stylebox_override("panel", UI.box(UI.CREAM, UI.INK, 3, 6))
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 6)
-	h.add_child(UI.sprite("kurabiye", 2))
+	h.add_child(UI.sprite("kurabiye", 34))
 	hud_cookies = UI.label("0", 24)
 	h.add_child(hud_cookies)
 	var spacer := Control.new()
@@ -135,11 +73,12 @@ func _refresh() -> void:
 	for c in hud_hearts.get_children():
 		c.queue_free()
 	for i in GameState.errands.size():
-		var heart := UI.sprite("heart", 2)
+		var heart := UI.sprite("heart", 28)
 		if i >= GameState.done_count:
 			heart.modulate = Color(0, 0, 0, 0.25)
 		hud_hearts.add_child(heart)
-	bubble.visible = not GameState.is_day_over() and game == null
+	world.bubble.visible = not GameState.is_day_over() and game == null
+	world.visible = game == null
 
 
 # --- teyze konuşma kutusu -------------------------------------------------------
@@ -150,7 +89,7 @@ func _build_dialog() -> void:
 	v.add_theme_constant_override("separation", 10)
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 10)
-	var face := UI.sprite("teyze", 5)
+	var face := Portrait.new(Vector2(92, 104))
 	face.size_flags_vertical = SIZE_SHRINK_BEGIN
 	top.add_child(face)
 	var tv := VBoxContainer.new()
@@ -193,9 +132,7 @@ func _on_teyze() -> void:
 	if busy or game != null:
 		return
 	busy = true
-	var tw := create_tween()
-	tw.tween_property(player, "position", Vector2(30, 46), 0.5)
-	await tw.finished
+	await world.walk_to_teyze()
 	busy = false
 	if GameState.is_day_over():
 		_say("Bugünlük bu kadar evladım. Yarın yine gel, sana kurabiye ayırdım.",
@@ -236,7 +173,7 @@ func _on_game_finished(_success: bool, info: Dictionary) -> void:
 
 func _new_day() -> void:
 	GameState.new_day()
-	player.position = Vector2(37, 80)
+	world.reset_player()
 	_say("Günaydın evladım! Yeni günde yeni işler var.", [["Günaydın teyzecim", _close_dialog]])
 
 
@@ -251,6 +188,8 @@ func _arg(key: String) -> String:
 
 func _screenshot_tour(dir: String) -> void:
 	GameState.reset()
+	_close_dialog()
+	await _shot(dir, "0_mahalle")
 	await _shot(dir, "1_mahalle")
 	_on_teyze()
 	await get_tree().create_timer(0.8).timeout

@@ -5,7 +5,7 @@ Fatma Teyze her gün sana küçük işler verir; her iş 1-3 dakikalık bir mini
 
 ## Şu an oyunda olanlar (prototip)
 
-- **Mahalle:** Teyzenin evi, komşu evi, pazar tezgahı. Teyzeye dokun, görevi al.
+- **Mahalle (low-poly 3D):** Cumbalı teyze evi, komşu evi, pazar tezgahı, bank, ağaçlar. Teyzeye dokun, görevi al.
 - **Pazar:** Teyzenin listesindeki ürünleri tezgahtan seç.
 - **Komşuya Haber:** Teyzenin sözünü aklında tut, komşuya sırasıyla anlat.
 - **Kayıp Kedi:** Pamuk saklandı; "miyav" ipuçlarıyla bul.
@@ -20,8 +20,8 @@ Fatma Teyze her gün sana küçük işler verir; her iş 1-3 dakikalık bir mini
 
 ## Geliştirme
 
-- Sprite'lar `tools/make_sprites.py` içindeki ASCII çizimlerden üretilir:
-  `python3 tools/make_sprites.py` (Pillow gerekir).
+- 3D modeller `scripts/models.gd` içinde Godot'nun hazır şekilleriyle kod ile kurulur; dış model dosyası yok.
+- Görev ekranlarındaki ikonlar `tools/make_icons.py` ile çizilir: `python3 tools/make_icons.py` (Pillow gerekir).
 - Bir günü otomatik oynayan test: `godot --headless -s tools/flow_test.gd`
 - Ekran görüntüleri: `godot -- --shots=/klasor/yolu`
 - Yeni görev eklemek: `scripts/errands.gd` içine metni, `scripts/minigames/` içine mini oyunu ekle.

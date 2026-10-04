@@ -21,7 +21,7 @@ func build() -> void:
 	for k in want:
 		got[k] = 0
 		var item := HBoxContainer.new()
-		item.add_child(UI.sprite(k, 3))
+		item.add_child(UI.sprite(k, 44))
 		var c := UI.label("0/%d" % want[k], 24)
 		counters[k] = c
 		item.add_child(c)
@@ -29,7 +29,7 @@ func build() -> void:
 	list_panel.add_child(list)
 	v.add_child(list_panel)
 
-	var stall := UI.sprite("stall", 5)
+	var stall := UI.sprite("stall", 100)
 	stall.size_flags_horizontal = SIZE_SHRINK_CENTER
 	v.add_child(stall)
 
