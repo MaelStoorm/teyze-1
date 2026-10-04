@@ -294,6 +294,137 @@ def _(i):
             i.shape(P((x0 + 20 * (1 - 0), 8), (x0 + 20 + 41.3 * 0.9, 8), (x0 + 41.3, 46), (x0, 46)), "#d8452f", outline=False, gloss=False)
 
 
+@icon("altin")
+def _(i):
+    i.shape(E(12, 12, 116, 116), "#f2c23a")
+    i.shape(E(28, 28, 100, 100), "#f7d65e", gloss=False)
+    i.line([(52, 46), (64, 40), (64, 88)], "#c9962a", 7)
+    i.line([(50, 88), (78, 88)], "#c9962a", 7)
+
+
+@icon("biber")
+def _(i):
+    i.shape(P((40, 30), (70, 26), (96, 60), (100, 100), (84, 118), (60, 92), (36, 56)), "#4caf50")
+    i.line([(54, 30), (50, 12), (60, 8)], "#3f7a3a", 6)
+
+
+@icon("sogan")
+def _(i):
+    i.shape(E(18, 34, 110, 118), "#d9a066")
+    i.shape(P((54, 40), (64, 10), (74, 40)), "#d9a066", gloss=False)
+    for x in (44, 64, 84):
+        i.line([(x, 50), (x, 104)], "#b9804a", 3)
+
+
+@icon("havuc")
+def _(i):
+    i.shape(P((30, 40), (84, 34), (60, 120)), "#f08a2c")
+    for dx in (-10, 0, 10):
+        i.shape(E(52 + dx - 7, 8, 52 + dx + 7, 40), "#4f9a4a", gloss=False)
+    for y in (56, 74, 92):
+        i.line([(44 + (y - 56) * 0.25, y), (58, y - 2)], "#c96a1c", 3)
+
+
+@icon("mercimek")
+def _(i):
+    i.shape(lambda d, s: d.pieslice((s(10), s(20), s(118), s(120)), 0, 180, fill=255), "#f2efe6", gloss=False)
+    i.shape(E(14, 52, 114, 84), "#e8892b", gloss=False)
+    import random
+    rnd = random.Random(3)
+    for _k in range(14):
+        x, y = rnd.uniform(26, 102), rnd.uniform(58, 76)
+        i.dot(x, y, 4, "#f2a65a")
+
+
+@icon("sut")
+def _(i):
+    i.shape(P((36, 30), (92, 30), (98, 46), (98, 118), (30, 118), (30, 46)), "#f8f6f2")
+    i.shape(R(30, 64, 98, 96, 2), "#5aa0d8", outline=False, gloss=False)
+    i.shape(R(44, 10, 84, 32, 4), "#5aa0d8")
+
+
+@icon("pirinc")
+def _(i):
+    i.shape(R(24, 28, 104, 118, 12), "#e6d3a3")
+    i.shape(R(34, 14, 94, 34, 6), "#c49a5a", gloss=False)
+    for x, y in ((48, 64), (64, 72), (80, 62), (56, 90), (76, 88)):
+        i.dot(x, y, 4, "#fffaf0")
+
+
+@icon("seker")
+def _(i):
+    i.shape(R(20, 50, 64, 94, 6), "#ffffff")
+    i.shape(R(64, 50, 108, 94, 6), "#f4efe6")
+    i.shape(R(42, 18, 86, 56, 6), "#ffffff")
+
+
+@icon("tencere")
+def _(i):
+    i.shape(R(4, 50, 24, 62, 4), "#9aa0a6", gloss=False)
+    i.shape(R(104, 50, 124, 62, 4), "#9aa0a6", gloss=False)
+    i.shape(R(16, 44, 112, 116, 14), "#b5442d")
+    i.shape(E(14, 34, 114, 56), "#9aa0a6", gloss=False)
+    i.shape(R(54, 22, 74, 36, 5), "#5c3a26", gloss=False)
+
+
+@icon("zil")
+def _(i):
+    i.shape(P((64, 16), (96, 40), (104, 96), (24, 96), (32, 40)), "#f2c23a")
+    i.shape(R(16, 92, 112, 106, 6), "#d9a72e", gloss=False)
+    i.shape(E(54, 100, 74, 120), "#c9962a", gloss=False)
+    i.shape(E(56, 6, 72, 22), "#d9a72e", gloss=False)
+
+
+@icon("file")
+def _(i):
+    i.line([(40, 50), (48, 14), (80, 14), (88, 50)], "#4f8a5b", 7)
+    i.shape(P((18, 46), (110, 46), (96, 120), (32, 120)), "#7fbf6a")
+    for x in range(30, 104, 14):
+        i.line([(x, 50), (x + 6, 116)], "#4f8a5b", 3)
+    for y in range(62, 116, 14):
+        i.line([(24, y), (104, y)], "#4f8a5b", 3)
+
+
+@icon("defter")
+def _(i):
+    i.shape(R(22, 10, 110, 118, 8), "#c8553a")
+    i.shape(R(34, 22, 100, 106, 4), "#fff4dc", gloss=False)
+    for y in (42, 58, 74, 90):
+        i.line([(44, y), (90, y)], "#c9b99a", 3)
+    for y in (24, 46, 68, 90):
+        i.shape(E(14, y, 30, y + 12), "#9aa0a6", gloss=False)
+
+
+@icon("kese")
+def _(i):
+    i.shape(E(18, 40, 110, 122), "#c0392b")
+    i.shape(P((40, 44), (88, 44), (100, 18), (28, 18)), "#c0392b", gloss=False)
+    i.line([(38, 44), (90, 44)], "#f2c23a", 6)
+    i.shape(E(48, 66, 80, 98), "#f2c23a", gloss=False)
+
+
+@icon("takvim")
+def _(i):
+    i.shape(R(14, 22, 114, 118, 10), "#f8f6f2")
+    i.shape(R(14, 22, 114, 50, 10), "#c8412f", gloss=False)
+    for x in (40, 88):
+        i.shape(R(x - 5, 10, x + 5, 34, 4), "#5c3a26", gloss=False)
+    for r in range(3):
+        for c in range(4):
+            i.dot(32 + c * 21, 66 + r * 17, 5, "#c9b99a")
+    i.dot(74, 83, 7, "#4f8a5b")
+
+
+@icon("yildiz")
+def _(i):
+    pts = []
+    for k in range(10):
+        a = math.radians(-90 + k * 36)
+        r = 56 if k % 2 == 0 else 24
+        pts.append((64 + r * math.cos(a), 66 + r * math.sin(a)))
+    i.shape(P(*pts), "#f2c23a")
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     for name, (fn, w, h) in ICONS.items():

@@ -49,6 +49,8 @@ func build() -> void:
 	for k in keys:
 		var b := UI.icon_button(k, Errands.MARKET[k], Callable())
 		b.pressed.connect(_pick.bind(k, b))
+		if GameState.has_perk("file") and not want.has(k):
+			b.modulate.a = 0.45
 		grid.add_child(b)
 	v.add_child(grid)
 

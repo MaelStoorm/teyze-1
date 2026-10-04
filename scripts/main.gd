@@ -5,11 +5,19 @@ const MINIGAMES := {
 	"pazar": preload("res://scripts/minigames/pazar.gd"),
 	"haber": preload("res://scripts/minigames/haber.gd"),
 	"kedi": preload("res://scripts/minigames/kedi.gd"),
+	"yemek": preload("res://scripts/minigames/yemek.gd"),
+	"altin": preload("res://scripts/minigames/altin.gd"),
 }
+const SHOP := preload("res://scripts/minigames/shop.gd")
+const TYPE_NAMES := {"pazar": "Pazar", "haber": "Komşuya Haber", "kedi": "Kayıp Kedi", "yemek": "Yemek", "altin": "Altın Günü"}
 
 var world: Mahalle3D
 var hud_cookies: Label
 var hud_day: Label
+var hud_level: Label
+var hud_xp: ProgressBar
+var shop_button: Button
+var level_note := ""
 var hud_hearts: HBoxContainer
 var dialog: PanelContainer
 var dialog_text: Label
@@ -25,8 +33,15 @@ func _ready() -> void:
 	overlay = UI.page(self, 10)
 	_build_hud()
 	overlay.add_child(UI.spacer())
+	shop_button = UI.button("Dükkan", _open_shop, 20)
+	shop_button.icon = UI.tex("file")
+	shop_button.add_theme_constant_override("icon_max_width", 34)
+	shop_button.custom_minimum_size = Vector2(150, 56)
+	shop_button.size_flags_horizontal = SIZE_SHRINK_END
+	overlay.add_child(shop_button)
 	_build_dialog()
 	GameState.changed.connect(_refresh)
+	GameState.leveled_up.connect(_on_level_up)
 	_refresh()
 	if GameState.done_count == 0 and GameState.day == 1:
 		_say("Hoş geldin evladım! Bana bir dokun bakayım, işlerim var.", [["Tamam teyzecim", _close_dialog]])
@@ -61,15 +76,34 @@ func _build_hud() -> void:
 	var spacer2 := Control.new()
 	spacer2.size_flags_horizontal = SIZE_EXPAND_FILL
 	h.add_child(spacer2)
-	hud_day = UI.label("Gün 1", 22)
-	h.add_child(hud_day)
-	p.add_child(h)
+	h.add_child(UI.sprite("yildiz", 30))
+	hud_level = UI.label("Sv 1", 22)
+	h.add_child(hud_level)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	v.add_child(h)
+	var h2 := HBoxContainer.new()
+	hud_xp = ProgressBar.new()
+	hud_xp.max_value = 1.0
+	hud_xp.show_percentage = false
+	hud_xp.custom_minimum_size = Vector2(0, 12)
+	hud_xp.size_flags_horizontal = SIZE_EXPAND_FILL
+	hud_xp.size_flags_vertical = SIZE_SHRINK_CENTER
+	hud_xp.add_theme_stylebox_override("background", UI.box(UI.CREAM_DARK, UI.INK, 2, 0))
+	hud_xp.add_theme_stylebox_override("fill", UI.box(Color("f2c23a"), UI.INK, 2, 0))
+	h2.add_child(hud_xp)
+	hud_day = UI.label("Gün 1", 16)
+	h2.add_child(hud_day)
+	v.add_child(h2)
+	p.add_child(v)
 	overlay.add_child(p)
 
 
 func _refresh() -> void:
 	hud_cookies.text = str(GameState.kurabiye)
-	hud_day.text = "Gün %d" % GameState.day
+	hud_day.text = "  Gün %d" % GameState.day
+	hud_level.text = "Sv %d" % GameState.level()
+	hud_xp.value = GameState.level_progress()
 	for c in hud_hearts.get_children():
 		c.queue_free()
 	for i in GameState.errands.size():
@@ -79,6 +113,7 @@ func _refresh() -> void:
 		hud_hearts.add_child(heart)
 	world.bubble.visible = not GameState.is_day_over() and game == null
 	world.visible = game == null
+	shop_button.visible = game == null and not dialog.visible
 
 
 # --- teyze konuşma kutusu -------------------------------------------------------
@@ -120,10 +155,12 @@ func _say(text: String, buttons: Array) -> void:
 		b.size_flags_horizontal = SIZE_EXPAND_FILL
 		dialog_buttons.add_child(b)
 	dialog.visible = true
+	shop_button.visible = false
 
 
 func _close_dialog() -> void:
 	dialog.visible = false
+	_refresh()
 
 
 # --- akış ----------------------------------------------------------------------
@@ -157,6 +194,19 @@ func _start_game(type: String, info: Dictionary) -> void:
 	_refresh()
 
 
+func _open_shop() -> void:
+	if game != null or busy:
+		return
+	_close_dialog()
+	game = SHOP.new().setup({})
+	add_child(game)
+	var back := UI.button("Mahalleye dön", _quit_game, 18)
+	back.custom_minimum_size = Vector2(180, 48)
+	back.size_flags_horizontal = SIZE_SHRINK_BEGIN
+	game.content.add_child(back)
+	_refresh()
+
+
 func _quit_game() -> void:
 	game.queue_free()
 	game = null
@@ -164,11 +214,22 @@ func _quit_game() -> void:
 
 
 func _on_game_finished(_success: bool, info: Dictionary) -> void:
+	var type := GameState.current_errand().get("type", "") as String
 	game.queue_free()
 	game = null
-	GameState.complete_errand()
-	var next := "Al bakalım, %d kurabiye senin!" % GameState.REWARD
-	_say("%s %s" % [info["thanks"], next], [["Afiyet olsun bana", _close_dialog]])
+	level_note = ""
+	var reward := GameState.complete_errand(type, info.get("bonus", 0))
+	var text := "%s Al bakalım, %d kurabiye senin!" % [info["thanks"], reward]
+	_say(text + level_note, [["Afiyet olsun bana", _close_dialog]])
+
+
+func _on_level_up(lv: int) -> void:
+	level_note = "\n\nSeviye atladın, artık Sv %d!" % lv
+	for t in GameState.UNLOCKS:
+		if GameState.UNLOCKS[t] == lv:
+			level_note += " Yeni görev açıldı: %s." % TYPE_NAMES[t]
+	if lv == 4:
+		level_note += " Artık günde bir görev fazla var."
 
 
 func _new_day() -> void:
@@ -188,20 +249,33 @@ func _arg(key: String) -> String:
 
 func _screenshot_tour(dir: String) -> void:
 	GameState.reset()
+	GameState.xp = 125
+	GameState.kurabiye = 47
+	GameState.new_day(false)
 	_close_dialog()
 	await _shot(dir, "0_mahalle")
-	await _shot(dir, "1_mahalle")
 	_on_teyze()
 	await get_tree().create_timer(0.8).timeout
 	await _shot(dir, "2_gorev")
-	for type in ["pazar", "haber", "kedi"]:
-		var info := Errands.build({"type": type, "seed": 7})
+	for type in ["pazar", "haber", "kedi", "yemek", "altin"]:
+		var info := Errands.build({"type": type, "seed": 7, "level": 5})
 		_start_game(type, info)
 		await _shot(dir, "3_" + type)
 		if type == "haber":
 			game.call("_show_tell")
 			await _shot(dir, "3_haber_2")
+		if type == "yemek":
+			for k in info["items"]:
+				game.call("_add", k, Button.new())
+			await _shot(dir, "3_yemek_2")
+		if type == "altin":
+			game.call("_visit", 1)
+			game.call("_offer", "cay", Button.new())
+			await _shot(dir, "3_altin_2")
 		_quit_game()
+	_open_shop()
+	await _shot(dir, "4_dukkan")
+	_quit_game()
 	get_tree().quit()
 
 

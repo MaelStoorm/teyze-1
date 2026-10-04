@@ -83,28 +83,28 @@ static func _face(n: Node3D, y: float, r: float, glasses := false) -> void:
 	part(n, ball(r * 0.12, 8), "#e0a46a", Vector3(0, y - r * 0.16, r * 0.98))
 
 
-static func teyze() -> Node3D:
+static func teyze(scarf := "#d6577a", cardigan := "#4f8a5b", skirt := "#7a4e8a") -> Node3D:
 	var n := Node3D.new()
 	n.name = "Teyze"
 	part(n, ball(0.12, 8), "#3b2a1e", Vector3(-0.14, 0.06, 0.06))
 	part(n, ball(0.12, 8), "#3b2a1e", Vector3(0.14, 0.06, 0.06))
-	part(n, cyl(0.27, 0.4, 0.55), "#7a4e8a", Vector3(0, 0.33, 0))  # etek
+	part(n, cyl(0.27, 0.4, 0.55), skirt, Vector3(0, 0.33, 0))  # etek
 	for i in 8:  # eteğin çiçekleri
 		var a := TAU * i / 8.0
 		part(n, ball(0.035, 6), "#f4efe6", Vector3(sin(a) * 0.36, 0.25, cos(a) * 0.36))
-	part(n, cyl(0.22, 0.28, 0.42), "#4f8a5b", Vector3(0, 0.8, 0))  # hırka
+	part(n, cyl(0.22, 0.28, 0.42), cardigan, Vector3(0, 0.8, 0))  # hırka
 	for sx in [-1, 1]:
-		part(n, capsule(0.08, 0.4), "#4f8a5b", Vector3(sx * 0.3, 0.78, 0.04), Vector3(0, 0, sx * 14))
+		part(n, capsule(0.08, 0.4), cardigan, Vector3(sx * 0.3, 0.78, 0.04), Vector3(0, 0, sx * 14))
 		part(n, ball(0.075, 8), "#f1c27d", Vector3(sx * 0.35, 0.56, 0.08))
 	part(n, ball(0.32, 16), "#f1c27d", Vector3(0, 1.3, 0))  # baş
 	_face(n, 1.3, 0.32, true)
 	# yazma (başörtüsü) ve puantiyeleri
-	part(n, ball(0.35, 16, true), "#d6577a", Vector3(0, 1.36, -0.02))
-	part(n, cyl(0.3, 0.34, 0.3), "#d6577a", Vector3(0, 1.22, -0.1), Vector3(-12, 0, 0))
+	part(n, ball(0.35, 16, true), scarf, Vector3(0, 1.36, -0.02))
+	part(n, cyl(0.3, 0.34, 0.3), scarf, Vector3(0, 1.22, -0.1), Vector3(-12, 0, 0))
 	for i in 7:
 		var a := lerpf(-1.2, 1.2, i / 6.0)
 		part(n, ball(0.035, 6), "#fff4dc", Vector3(sin(a) * 0.3, 1.52, cos(a) * 0.17 - 0.02))
-	part(n, prism(0.16, 0.14, 0.06), "#d6577a", Vector3(0, 1.02, 0.2), Vector3(180, 0, 0))
+	part(n, prism(0.16, 0.14, 0.06), scarf, Vector3(0, 1.02, 0.2), Vector3(180, 0, 0))
 	return n
 
 
