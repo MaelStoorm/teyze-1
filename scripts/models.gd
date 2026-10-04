@@ -83,43 +83,63 @@ static func _face(n: Node3D, y: float, r: float, glasses := false) -> void:
 	part(n, ball(r * 0.12, 8), "#e0a46a", Vector3(0, y - r * 0.16, r * 0.98))
 
 
+## Hareket eden uzuvlar için boş bir döndürme noktası (omuz, kalça).
+static func pivot(parent: Node3D, name: String, pos: Vector3) -> Node3D:
+	var p := Node3D.new()
+	p.name = name
+	p.position = pos
+	parent.add_child(p)
+	return p
+
+
+## Karakterlerin ortak iskeleti: Body (gövde, baş) ve LegL/LegR, ArmL/ArmR
+## döndürme noktaları. Walker bu isimlerle yürüme animasyonu yapar.
 static func teyze(scarf := "#d6577a", cardigan := "#4f8a5b", skirt := "#7a4e8a") -> Node3D:
 	var n := Node3D.new()
 	n.name = "Teyze"
-	part(n, ball(0.12, 8), "#3b2a1e", Vector3(-0.14, 0.06, 0.06))
-	part(n, ball(0.12, 8), "#3b2a1e", Vector3(0.14, 0.06, 0.06))
-	part(n, cyl(0.27, 0.4, 0.55), skirt, Vector3(0, 0.33, 0))  # etek
+	for side in [["LegL", -1], ["LegR", 1]]:
+		var leg := pivot(n, side[0], Vector3(side[1] * 0.14, 0.3, 0))
+		part(leg, ball(0.12, 8), "#3b2a1e", Vector3(0, -0.24, 0.06), Vector3.ZERO, Vector3(1, 0.7, 1.3))
+	var body := pivot(n, "Body", Vector3.ZERO)
+	part(body, cyl(0.27, 0.4, 0.55), skirt, Vector3(0, 0.33, 0))  # etek
 	for i in 8:  # eteğin çiçekleri
 		var a := TAU * i / 8.0
-		part(n, ball(0.035, 6), "#f4efe6", Vector3(sin(a) * 0.36, 0.25, cos(a) * 0.36))
-	part(n, cyl(0.22, 0.28, 0.42), cardigan, Vector3(0, 0.8, 0))  # hırka
-	for sx in [-1, 1]:
-		part(n, capsule(0.08, 0.4), cardigan, Vector3(sx * 0.3, 0.78, 0.04), Vector3(0, 0, sx * 14))
-		part(n, ball(0.075, 8), "#f1c27d", Vector3(sx * 0.35, 0.56, 0.08))
-	part(n, ball(0.32, 16), "#f1c27d", Vector3(0, 1.3, 0))  # baş
-	_face(n, 1.3, 0.32, true)
+		part(body, ball(0.035, 6), "#f4efe6", Vector3(sin(a) * 0.36, 0.25, cos(a) * 0.36))
+	part(body, cyl(0.22, 0.28, 0.42), cardigan, Vector3(0, 0.8, 0))  # hırka
+	for side in [["ArmL", -1], ["ArmR", 1]]:
+		var sx: int = side[1]
+		var arm := pivot(body, side[0], Vector3(sx * 0.27, 0.98, 0.02))
+		part(arm, capsule(0.08, 0.4), cardigan, Vector3(sx * 0.04, -0.2, 0.02), Vector3(0, 0, sx * 12))
+		part(arm, ball(0.075, 8), "#f1c27d", Vector3(sx * 0.08, -0.42, 0.06))
+	part(body, ball(0.32, 16), "#f1c27d", Vector3(0, 1.3, 0))  # baş
+	_face(body, 1.3, 0.32, true)
 	# yazma (başörtüsü) ve puantiyeleri
-	part(n, ball(0.35, 16, true), scarf, Vector3(0, 1.36, -0.02))
-	part(n, cyl(0.3, 0.34, 0.3), scarf, Vector3(0, 1.22, -0.1), Vector3(-12, 0, 0))
+	part(body, ball(0.35, 16, true), scarf, Vector3(0, 1.36, -0.02))
+	part(body, cyl(0.3, 0.34, 0.3), scarf, Vector3(0, 1.22, -0.1), Vector3(-12, 0, 0))
 	for i in 7:
 		var a := lerpf(-1.2, 1.2, i / 6.0)
-		part(n, ball(0.035, 6), "#fff4dc", Vector3(sin(a) * 0.3, 1.52, cos(a) * 0.17 - 0.02))
-	part(n, prism(0.16, 0.14, 0.06), scarf, Vector3(0, 1.02, 0.2), Vector3(180, 0, 0))
+		part(body, ball(0.035, 6), "#fff4dc", Vector3(sin(a) * 0.3, 1.52, cos(a) * 0.17 - 0.02))
+	part(body, prism(0.16, 0.14, 0.06), scarf, Vector3(0, 1.02, 0.2), Vector3(180, 0, 0))
 	return n
 
 
 static func player() -> Node3D:
 	var n := Node3D.new()
 	n.name = "Oyuncu"
-	for sx in [-1, 1]:
-		part(n, capsule(0.09, 0.45), "#2c3e50", Vector3(sx * 0.11, 0.24, 0))
-	part(n, cyl(0.2, 0.24, 0.45), "#3d6fb6", Vector3(0, 0.7, 0))
-	for sx in [-1, 1]:
-		part(n, capsule(0.07, 0.38), "#3d6fb6", Vector3(sx * 0.28, 0.7, 0), Vector3(0, 0, sx * 10))
-		part(n, ball(0.07, 8), "#f1c27d", Vector3(sx * 0.31, 0.5, 0))
-	part(n, ball(0.3, 16), "#f1c27d", Vector3(0, 1.2, 0))
-	_face(n, 1.2, 0.3)
-	part(n, ball(0.32, 16, true), "#3b2a1e", Vector3(0, 1.27, -0.05), Vector3(-15, 0, 0))
+	for side in [["LegL", -1], ["LegR", 1]]:
+		var leg := pivot(n, side[0], Vector3(side[1] * 0.11, 0.46, 0))
+		part(leg, capsule(0.09, 0.45), "#2c3e50", Vector3(0, -0.22, 0))
+		part(leg, ball(0.09, 8), "#5c3a26", Vector3(0, -0.43, 0.05), Vector3.ZERO, Vector3(1, 0.7, 1.4))
+	var body := pivot(n, "Body", Vector3.ZERO)
+	part(body, cyl(0.2, 0.24, 0.45), "#3d6fb6", Vector3(0, 0.7, 0))
+	for side in [["ArmL", -1], ["ArmR", 1]]:
+		var sx: int = side[1]
+		var arm := pivot(body, side[0], Vector3(sx * 0.25, 0.88, 0))
+		part(arm, capsule(0.07, 0.38), "#3d6fb6", Vector3(sx * 0.03, -0.18, 0), Vector3(0, 0, sx * 10))
+		part(arm, ball(0.07, 8), "#f1c27d", Vector3(sx * 0.06, -0.38, 0))
+	part(body, ball(0.3, 16), "#f1c27d", Vector3(0, 1.2, 0))
+	_face(body, 1.2, 0.3)
+	part(body, ball(0.32, 16, true), "#3b2a1e", Vector3(0, 1.27, -0.05), Vector3(-15, 0, 0))
 	return n
 
 

@@ -11,6 +11,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 OUT = Path(__file__).resolve().parent.parent / "assets" / "icons"
 SS = 4  # süper örnekleme
+OUT_SCALE = 2  # telefonların yüksek çözünürlüklü ekranında keskin dursun diye 2x kaydet
 INK = (59, 42, 30, 255)
 
 
@@ -80,7 +81,7 @@ class Icon:
         base = Image.new("RGBA", self.img.size, (0, 0, 0, 0))
         base.paste(Image.new("RGBA", self.img.size, (0, 0, 0, 70)), (0, SS * 3), shadow)
         base.alpha_composite(self.img)
-        base.resize(self.size, Image.LANCZOS).save(OUT / f"{name}.png")
+        base.resize((self.size[0] * OUT_SCALE, self.size[1] * OUT_SCALE), Image.LANCZOS).save(OUT / f"{name}.png")
 
 
 def E(x0, y0, x1, y1):

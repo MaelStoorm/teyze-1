@@ -25,7 +25,7 @@ func build() -> void:
 		b.texture_normal = UI.tex(SPOTS[i][0])
 		b.ignore_texture_size = true
 		b.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-		b.size = b.texture_normal.get_size() * 0.85
+		b.size = b.texture_normal.get_size() * 0.425  # ikonlar 2x çözünürlükte
 		b.position = SPOTS[i][1] - b.size / 2
 		b.pressed.connect(_tap.bind(i, b))
 		buttons.append(b)

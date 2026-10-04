@@ -1,5 +1,5 @@
 class_name Portrait
-extends SubViewportContainer
+extends View3D
 ## Konuşma kutularında teyzenin canlı 3D portresi.
 
 var _model: Node3D
@@ -7,14 +7,13 @@ var _t := 0.0
 
 
 func _init(size_px := Vector2(96, 110), full_body := false, scarf := "#d6577a", cardigan := "#4f8a5b") -> void:
+	super()
 	custom_minimum_size = size_px
-	stretch = true
 	mouse_filter = MOUSE_FILTER_IGNORE
-	var vp := SubViewport.new()
+	var vp := viewport
 	vp.own_world_3d = true
 	vp.transparent_bg = true
 	vp.msaa_3d = Viewport.MSAA_4X
-	add_child(vp)
 	var light := DirectionalLight3D.new()
 	light.rotation_degrees = Vector3(-35, 30, 0)
 	light.light_energy = 1.1

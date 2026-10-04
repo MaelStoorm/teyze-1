@@ -1,19 +1,17 @@
 class_name ModelThumb
-extends SubViewportContainer
+extends View3D
 ## Dükkanda süslerin küçük, yavaşça dönen 3D önizlemesi.
 
 var _pivot := Node3D.new()
 
 
 func _init(model: Node3D, size_px := Vector2(64, 64), distance := 4.5) -> void:
+	super()
 	custom_minimum_size = size_px
-	stretch = true
 	mouse_filter = MOUSE_FILTER_IGNORE
-	var vp := SubViewport.new()
+	var vp := viewport
 	vp.own_world_3d = true
 	vp.transparent_bg = true
-	vp.msaa_3d = Viewport.MSAA_2X
-	add_child(vp)
 	var light := DirectionalLight3D.new()
 	light.rotation_degrees = Vector3(-45, 35, 0)
 	vp.add_child(light)
