@@ -412,7 +412,7 @@ func _say(text: String, buttons: Array, who := "") -> void:
 	dialog_text.text = text
 	for c in dialog_buttons.get_children():
 		c.queue_free()
-	dialog_buttons.columns = 1 if buttons.size() <= 2 else 2
+	dialog_buttons.columns = 1 if buttons.size() <= 4 else 2
 	for pair in buttons:
 		var b := UI.button(pair[0], pair[1], 20)
 		b.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -1023,6 +1023,23 @@ func _screenshot_tour(dir: String) -> void:
 	_open_settings()
 	await _shot(dir, "5_ayarlar")
 	_quit_game()
+	GameState.kurabiye = 120
+	_open_home()
+	for id in ["kilim", "sedir", "semaver"]:
+		if EvEsya.get_item(id).size() > 0:
+			game.call("choose", id)
+	await get_tree().create_timer(0.8).timeout
+	await _shot(dir, "8_evim")
+	_quit_game()
+	_open_fun("tavla", "ahmet")
+	await _shot(dir, "8_tavla")
+	_quit_game()
+	_open_fun("cay", "filiz")
+	await _shot(dir, "8_cay")
+	_quit_game()
+	_talk_neighbor("ahmet")
+	await _shot(dir, "8_ahmet")
+	_close_dialog()
 	UI.text_scale = 1.2
 	_start_game("yemek", Errands.build({"type": "yemek", "seed": 3, "level": 5}))
 	await _shot(dir, "6_buyuk_yazi")

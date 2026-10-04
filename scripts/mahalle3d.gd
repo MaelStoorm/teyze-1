@@ -67,7 +67,7 @@ const PHASES := {
 	"sabah": {"sky": "cde9f4", "amb": "e8eeff", "amb_e": 0.45, "sun": "ffe2bd", "sun_e": 0.75, "rot": Vector3(-35, 70, 0)},
 	"ogle": {"sky": "bfe3f0", "amb": "dfe9ff", "amb_e": 0.42, "sun": "fff3dc", "sun_e": 0.8, "rot": Vector3(-55, 32, 0)},
 	"aksam": {"sky": "f5c79a", "amb": "ffdcc4", "amb_e": 0.46, "sun": "ffb072", "sun_e": 0.72, "rot": Vector3(-25, -45, 0)},
-	"gece": {"sky": "1f2a52", "amb": "8a9fe0", "amb_e": 0.55, "sun": "b8c8ff", "sun_e": 0.26, "rot": Vector3(-50, 10, 0)},
+	"gece": {"sky": "1a2450", "amb": "7690e8", "amb_e": 0.6, "sun": "9fb4ff", "sun_e": 0.3, "rot": Vector3(-50, 10, 0)},
 }
 var _bostan_sig := ""
 const PLAYER_SPEED := 2.6
