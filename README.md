@@ -37,3 +37,13 @@ Fatma Teyze her gün sana küçük işler verir; her iş 1-3 dakikalık bir mini
 - Kurabiyelerle teyzenin evini ve mahalleyi güzelleştirme
 - Gerçek parayla satın alma (Google Play hesabı onaylandıktan sonra)
 - Daha fazla görev türü
+
+## Android APK
+
+Test için imzalı APK:
+
+1. `godot --headless --export-release "Android" build/teyze-unsigned.apk`
+   (Godot export şablonları 4.3 ve Editor Settings'te bir Android SDK yolu gerekir.)
+2. `java -jar uber-apk-signer.jar -a build/teyze-unsigned.apk --ks <keystore> --ksAlias teyze`
+
+Play Store sürümü için ayrı bir yükleme anahtarı oluşturulacak.
