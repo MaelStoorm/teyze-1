@@ -15,6 +15,31 @@ func _initialize() -> void:
 	for c in main.get_children():
 		if c.get_script() and c.get_script().resource_path.ends_with("splash.gd"):  # açılış ekranı testte beklenmez
 			c.queue_free()
+	# rehber: teyzeye yürü, ilk işi yap (günün işlerinden sayılmaz), ekranı tanı
+	main._tutorial(0)
+	assert(main.dialog.visible and not main.joystick.visible)
+	main.dialog_buttons.get_child(0).pressed.emit()
+	assert(main._tut_kind() == "walk" and not main.dialog.visible and main.joystick.visible and main.hint_panel.visible)
+	assert(not main.bottom_bar.visible, "rehberde yürürken dükkan düğmeleri gizli")
+	main.world.player.position = main.world.teyze.position + Vector3(1.5, 0, 0)
+	await process_frame
+	await process_frame
+	assert(main.tutorial_step == 2 and main.dialog.visible, "teyzeye varınca konuşmalı")
+	main.dialog_buttons.get_child(0).pressed.emit()
+	assert(main._tut_kind() == "task" and main.task["kind"] == "shop" and main._task_goals() == ["stall_manav"])
+	var t0: int = gs.kurabiye
+	main._interact("stall_manav")
+	main._buy_item("stall_manav", "domates")
+	main._buy_item("stall_manav", "domates")
+	main._close_dialog()
+	assert(main._task_goals() == ["fatma"])
+	main._interact("fatma")
+	assert(gs.kurabiye == t0 + main.TUT_REWARD and gs.done_count == 0, "ilk iş ödülü")
+	for i in 4:
+		await process_frame  # eski düğmeler silinsin
+		main.dialog_buttons.get_child(0).pressed.emit()
+	await process_frame
+	assert(main.tutorial_step == -1 and gs.settings["tutorial"] and not main.dialog.visible and main.bottom_bar.visible)
 	var seen := {}
 	for d in 6:
 		while not gs.is_day_over():
@@ -42,6 +67,19 @@ func _initialize() -> void:
 	assert(gs.streak == 4 and gs.daily_gift == 6 and gs.day == day_before + 1)
 	gs.errands_date = Time.get_date_string_from_unix_time(Time.get_unix_time_from_system() - 3 * 86400)
 	assert(gs.check_new_day() and gs.streak == 1, "ara verilince seri sıfırlanmalı")
+	# hediye takvimi: 7. gün büyük hediye ve evin için sürpriz eşya, sonra hafta baştan
+	gs.errands_date = Time.get_date_string_from_unix_time(Time.get_unix_time_from_system() - 86400)
+	gs.streak = 6
+	gs.ev_items = {}
+	assert(gs.check_new_day() and gs.gift_day() == 7 and gs.daily_gift == 12)
+	assert(gs.daily_surprise != "" and gs.ev_items.has(gs.daily_surprise), "7. gün sürprizi")
+	assert(main._show_daily_gift() and gs.daily_gift == 0)
+	var cal = main.get_child(main.get_child_count() - 1)
+	assert(cal.get_script().resource_path.ends_with("takvim.gd"))
+	cal._close()
+	gs.errands_date = Time.get_date_string_from_unix_time(Time.get_unix_time_from_system() - 86400)
+	assert(gs.check_new_day() and gs.gift_day() == 1 and gs.daily_gift == 3 and gs.daily_surprise == "")
+	gs.daily_gift = 0
 	# süsler
 	gs.kurabiye = 25
 	assert(gs.buy_decor("kedievi") and gs.kurabiye == 5)
