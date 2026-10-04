@@ -19,7 +19,7 @@ func build() -> void:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	content.add_child(scroll)
 	_grid = GridContainer.new()
-	_grid.columns = 5 if UI.text_scale < 1.2 else 4
+	_grid.columns = 5 if UI.text_scale < 1.2 else 3
 	_grid.size_flags_horizontal = SIZE_EXPAND_FILL
 	_grid.add_theme_constant_override("h_separation", 10)
 	_grid.add_theme_constant_override("v_separation", 10)
@@ -34,7 +34,7 @@ func build() -> void:
 func _card(c: Dictionary) -> Control:
 	var have: bool = GameState.album.has(c["id"])
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(0, 128)
+	b.custom_minimum_size = Vector2(0, 140)
 	b.size_flags_horizontal = SIZE_EXPAND_FILL
 	var col := Color(c["color"])
 	var bg := Color("fffaf0") if have else Color("e6ddd0")
@@ -63,15 +63,20 @@ func _card(c: Dictionary) -> Control:
 		q.custom_minimum_size = Vector2(46, 46)
 		photo.add_child(q)
 	v.add_child(photo)
-	var t := UI.label(c["title"] if have else "Kapalı anı", 15, UI.INK if have else Color("8a7f6e"), true)
+	var t := UI.label(c["title"] if have else "Kapalı anı", _cap(15), UI.INK if have else Color("8a7f6e"), true)
 	t.mouse_filter = MOUSE_FILTER_IGNORE
 	v.add_child(t)
 	if have:
-		var d := UI.label(_date(GameState.album[c["id"]]), 13, Color("8a6a4a"))
+		var d := UI.label(_date(GameState.album[c["id"]]), _cap(12), Color("8a6a4a"))
 		d.mouse_filter = MOUSE_FILTER_IGNORE
 		v.add_child(d)
 	b.pressed.connect(_show.bind(c, b))
 	return b
+
+
+## Kart içindeki yazılar büyük yazı ayarında da kartın dışına taşmasın.
+func _cap(size: int) -> int:
+	return int(size * minf(UI.text_scale, 1.1) / UI.text_scale)
 
 
 func _show(c: Dictionary, b: Control) -> void:
