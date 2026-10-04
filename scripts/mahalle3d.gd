@@ -175,7 +175,7 @@ func _build() -> void:
 		root.add_child(anchor)
 		targets["tarh%d" % i] = {"node": anchor, "h": 0.4, "spot": c + Vector3(0, 0, BED_SIZE.y / 2 + 0.45) if i >= 2 else c + Vector3(0, 0, -BED_SIZE.y / 2 - 0.45)}
 	_solid(Props.scarecrow(), Vector3(6.0, 0, 3.6), -20, Rect2(5.7, 3.3, 0.6, 0.6))
-	var bl := Props.label3d("BOSTANIN", 110, Color("4f7a2a"))
+	var bl := Props.label3d("BOSTANIM", 110, Color("4f7a2a"))
 	bl.position = Vector3(3.5, 1.4, 1.9)
 	root.add_child(bl)
 	_bostan_root = Node3D.new()
