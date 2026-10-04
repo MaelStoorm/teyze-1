@@ -39,6 +39,7 @@ func _initialize() -> void:
 		await process_frame  # eski düğmeler silinsin
 		main.dialog_buttons.get_child(0).pressed.emit()
 	await process_frame
+	assert(gs.album.has("ilk_is"), "ilk iş albüme girmeli")
 	assert(main.tutorial_step == -1 and gs.settings["tutorial"] and not main.dialog.visible and main.bottom_bar.visible)
 	var seen := {}
 	for d in 6:
@@ -183,6 +184,23 @@ func _initialize() -> void:
 	await create_timer(0.1).timeout
 	assert(not main.busy and not main.dialog.visible, "kol kullanılınca teyzeye gitme iptal olmalı")
 	print("Komşular: kalpler %s, kurabiye %d" % [gs.friendship, gs.kurabiye])
+	# albüm: yaşananlar kart oldu, açılan albüm hepsini gösteriyor
+	for id in ["ilk_is", "pazar", "dost", "herkes", "seviye5"]:
+		assert(gs.album.has(id), "albümde olmalı: " + id)
+	var before_album: int = gs.album.size()
+	var fresh := ""
+	for c in load("res://scripts/album.gd").CARDS:
+		if not gs.album.has(c["id"]):
+			fresh = c["id"]
+			break
+	assert(gs.remember(fresh) and not gs.remember(fresh), "anı bir kez eklenir")
+	assert(not gs.remember("yok_boyle"), "bilinmeyen anı eklenmez")
+	main._open_album()
+	await process_frame
+	assert(main.game._grid.get_child_count() == load("res://scripts/album.gd").CARDS.size())
+	main._quit_game()
+	assert(gs.album.size() == before_album + 1)
+	print("ALBÜM: %d anı açık" % gs.album.size())
 	print("TAMAM: 6 gün oynandı, yeni görevler açıldı, dükkan ve komşular çalışıyor")
 	quit(0)
 

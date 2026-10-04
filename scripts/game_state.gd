@@ -3,6 +3,8 @@ extends Node
 
 signal changed
 signal leveled_up(level: int)
+## Albüme yeni bir anı kartı eklendi.
+signal remembered(id: String)
 
 const SAVE_PATH := "user://kayit.cfg"
 const REWARD := 3
@@ -60,6 +62,8 @@ var gifts_today := {}
 ## Ahmet Amca'yla tavla: kazanılan ve oynanan oyunlar.
 var tavla_won := 0
 var tavla_played := 0
+## Mahalle albümü: açılan anı kartları, id -> tarih (YYYY-MM-DD).
+var album := {}
 
 
 func _ready() -> void:
@@ -273,6 +277,7 @@ func harvest_bed(i: int) -> int:
 	var n: int = CROPS[crop]["yield"]
 	harvest[crop] = harvest.get(crop, 0) + n
 	bostan[i] = {}
+	remember("hasat")
 	xp += 2
 	save_game()
 	changed.emit()
@@ -309,6 +314,7 @@ func gift_harvest(id: String) -> Dictionary:
 	if harvest[crop] <= 0:
 		harvest.erase(crop)
 	gifts_today[id] = true
+	remember("hediye")
 	var r := _befriend(id, 3, 4)
 	r["crop"] = crop
 	return r
@@ -382,6 +388,8 @@ func complete_errand(type: String, bonus := 0) -> int:
 	var reward := errand_reward(type) + bonus
 	done_count += 1
 	kurabiye += reward
+	if type == "pazar":
+		remember("pazar")
 	xp += XP_PER_ERRAND
 	var after := level()
 	for t in UNLOCKS:
@@ -422,8 +430,43 @@ func new_day(advance := true) -> void:
 
 # --- kayıt -------------------------------------------------------------------
 
+## Albüme bir anı ekler; yeniyse true. (Kaydı çağıran yapar.)
+func remember(id: String, silent := false) -> bool:
+	if album.has(id) or Album.get_card(id).is_empty():
+		return false
+	album[id] = today()
+	if not silent:
+		remembered.emit(id)
+	return true
+
+
+## Oyunun durumundan anlaşılan anıları albüme ekler.
+func _check_album(silent := false) -> void:
+	var conds := {
+		"sutlu": sutlu_love >= 1,
+		"sutlu7": sutlu_love >= 7,
+		"dost": friendship.values().any(func(h): return h > 0),
+		"herkes": Neighbors.ALL.all(func(n): return hearts(n["id"]) > 0),
+		"can_dost": friendship.values().any(func(h): return h >= Neighbors.MAX_HEARTS),
+		"ekim": bostan.any(func(b): return not b.is_empty()),
+		"ev": not ev.is_empty(),
+		"ev_dolu": EvEsya.SLOTS.all(func(sl): return ev.get(sl["id"], "") != ""),
+		"dukkan": not perks.is_empty(),
+		"sus": not decor.is_empty(),
+		"tavla": tavla_won > 0,
+		"hafta": streak >= 7,
+		"seviye5": level() >= 5,
+		"kurabiye": kurabiye >= 100,
+	}
+	for id in conds:
+		if conds[id]:
+			remember(id, silent)
+
+
 func save_game() -> void:
+	_check_album()
 	var cfg := ConfigFile.new()
+	cfg.set_value("album", "anilar", album)
 	cfg.set_value("oyuncu", "kurabiye", kurabiye)
 	cfg.set_value("oyuncu", "gun", day)
 	cfg.set_value("oyuncu", "xp", xp)
@@ -479,6 +522,8 @@ func load_game() -> void:
 	gifts_today = cfg.get_value("bostan", "hediyeler", {})
 	tavla_won = cfg.get_value("tavla", "kazanilan", 0)
 	tavla_played = cfg.get_value("tavla", "oynanan", 0)
+	album = cfg.get_value("album", "anilar", {})
+	_check_album(true)  # eski kayıtlarda zaten yaşanmış anılar sessizce eklenir
 
 
 func reset() -> void:
@@ -498,6 +543,7 @@ func reset() -> void:
 	gifts_today = {}
 	tavla_won = 0
 	tavla_played = 0
+	album = {}
 	fresh_unlocks = []
 	streak = 1
 	daily_gift = 0
