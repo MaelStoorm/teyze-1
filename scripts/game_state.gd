@@ -50,6 +50,8 @@ var ev_items := {}
 var bostan: Array = [{}, {}, {}, {}]
 ## Bostandan toplanıp henüz verilmemiş sebzeler: id -> adet.
 var harvest := {}
+## Bugün bostandan hediye verilen komşular: id -> true. Yeni günde sıfırlanır.
+var gifts_today := {}
 ## Ahmet Amca'yla tavla: kazanılan ve oynanan oyunlar.
 var tavla_won := 0
 var tavla_played := 0
@@ -178,12 +180,17 @@ func favor_seed(id: String) -> int:
 
 ## Ricayı bitirir. Dönen sözlük: reward (kurabiye), hearts, gift (eşik ya da 0).
 func complete_favor(id: String) -> Dictionary:
-	var before := level()
 	favors_done[id] = true
+	return _befriend(id, 2 + perk_level("dua"), XP_PER_ERRAND / 2)
+
+
+## Dostluğa bir kalp ekler, eşikteyse hediyesini verir.
+func _befriend(id: String, base_reward: int, gain_xp: int) -> Dictionary:
+	var before := level()
 	var h := mini(hearts(id) + 1, Neighbors.MAX_HEARTS)
 	var gained := h > hearts(id)
 	friendship[id] = h
-	var reward := 2 + perk_level("dua")
+	var reward := base_reward
 	var gift := 0
 	if gained and Neighbors.GIFTS.has(h):
 		gift = h
@@ -195,13 +202,91 @@ func complete_favor(id: String) -> Dictionary:
 			"sus":
 				decor[Neighbors.get_neighbor(id)["gift_decor"]] = true
 	kurabiye += reward
-	xp += XP_PER_ERRAND / 2
+	xp += gain_xp
 	save_game()
 	changed.emit()
 	var after := level()
 	if after > before:
 		leveled_up.emit(after)
 	return {"reward": reward, "hearts": h, "gift": gift}
+
+
+## Bugün yağmurlu mu? Takvim gününe göre sabit (her dört günden biri kadar).
+func is_rainy() -> bool:
+	return hash(today() + "yagmur") % 4 == 0
+
+
+# --- bostan -----------------------------------------------------------------
+
+const CROPS := {
+	"domates": {"name": "domates", "yield": 3},
+	"biber": {"name": "biber", "yield": 3},
+	"havuc": {"name": "havuç", "yield": 3},
+	"karpuz": {"name": "karpuz", "yield": 1},
+}
+
+
+## "empty", "growing" (bugün ekildi) ya da "ripe" (ertesi gün olgunlaşır).
+func bed_state(i: int) -> String:
+	var b: Dictionary = bostan[i]
+	if b.is_empty():
+		return "empty"
+	return "ripe" if days_between(b["planted"], today()) >= 1 else "growing"
+
+
+func plant(i: int, crop: String) -> void:
+	bostan[i] = {"crop": crop, "planted": today()}
+	save_game()
+	changed.emit()
+
+
+## Olgun tarhı toplar; kaç tane toplandığını döner.
+func harvest_bed(i: int) -> int:
+	if bed_state(i) != "ripe":
+		return 0
+	var crop: String = bostan[i]["crop"]
+	var n: int = CROPS[crop]["yield"]
+	harvest[crop] = harvest.get(crop, 0) + n
+	bostan[i] = {}
+	xp += 2
+	save_game()
+	changed.emit()
+	return n
+
+
+func harvest_count() -> int:
+	var n := 0
+	for k in harvest:
+		n += harvest[k]
+	return n
+
+
+func add_kurabiye(n: int) -> void:
+	kurabiye += n
+	save_game()
+	changed.emit()
+
+
+func can_gift(id: String) -> bool:
+	return harvest_count() > 0 and not gifts_today.has(id)
+
+
+## Komşuya bostandan bir sebze hediye eder: bir kalp ve biraz kurabiye.
+func gift_harvest(id: String) -> Dictionary:
+	var crop: String = ""
+	for k in harvest:
+		if harvest[k] > 0:
+			crop = k
+			break
+	if crop == "" or gifts_today.has(id):
+		return {}
+	harvest[crop] -= 1
+	if harvest[crop] <= 0:
+		harvest.erase(crop)
+	gifts_today[id] = true
+	var r := _befriend(id, 3, 4)
+	r["crop"] = crop
+	return r
 
 
 func errands_per_day() -> int:
@@ -302,6 +387,7 @@ func new_day(advance := true) -> void:
 	errands.clear()
 	favors_done.clear()
 	favor_seeds.clear()
+	gifts_today.clear()
 	for t in types:
 		errands.append({"type": t, "seed": randi(), "level": level()})
 	done_count = 0
@@ -334,6 +420,7 @@ func save_game() -> void:
 	cfg.set_value("ev", "esyalar", ev_items)
 	cfg.set_value("bostan", "tarhlar", bostan)
 	cfg.set_value("bostan", "hasat", harvest)
+	cfg.set_value("bostan", "hediyeler", gifts_today)
 	cfg.set_value("tavla", "kazanilan", tavla_won)
 	cfg.set_value("tavla", "oynanan", tavla_played)
 	cfg.save(SAVE_PATH)
@@ -364,6 +451,7 @@ func load_game() -> void:
 	ev_items = cfg.get_value("ev", "esyalar", {})
 	bostan = cfg.get_value("bostan", "tarhlar", [{}, {}, {}, {}])
 	harvest = cfg.get_value("bostan", "hasat", {})
+	gifts_today = cfg.get_value("bostan", "hediyeler", {})
 	tavla_won = cfg.get_value("tavla", "kazanilan", 0)
 	tavla_played = cfg.get_value("tavla", "oynanan", 0)
 
@@ -382,6 +470,7 @@ func reset() -> void:
 	ev_items = {}
 	bostan = [{}, {}, {}, {}]
 	harvest = {}
+	gifts_today = {}
 	tavla_won = 0
 	tavla_played = 0
 	fresh_unlocks = []

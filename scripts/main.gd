@@ -34,6 +34,7 @@ var dialog_name: Label
 var dialog_face: Portrait
 var dialog_who := ""
 var friends_button: Button
+var home_button: Button
 var dialog_buttons: GridContainer
 var game: Minigame
 var busy := false
@@ -82,6 +83,16 @@ func _ready() -> void:
 	friends_button.custom_minimum_size = Vector2(60, 56)
 	friends_button.size_flags_vertical = SIZE_SHRINK_END
 	bottom_bar.add_child(friends_button)
+	var gap3 := Control.new()
+	gap3.custom_minimum_size.x = 10
+	gap3.mouse_filter = MOUSE_FILTER_IGNORE
+	bottom_bar.add_child(gap3)
+	home_button = UI.button("", _open_home, 20)
+	home_button.icon = UI.tex("ev")
+	home_button.add_theme_constant_override("icon_max_width", 34)
+	home_button.custom_minimum_size = Vector2(60, 56)
+	home_button.size_flags_vertical = SIZE_SHRINK_END
+	bottom_bar.add_child(home_button)
 	var gap2 := Control.new()
 	gap2.custom_minimum_size.x = 10
 	gap2.mouse_filter = MOUSE_FILTER_IGNORE
@@ -207,6 +218,7 @@ func _refresh() -> void:
 		hud_hearts.add_child(heart)
 	world.refresh_decor()
 	world.refresh_neighbors()
+	world.refresh_bostan()
 	world.set_bowl_full(GameState.sutlu_fed_today())
 	world.sutlu_follow = GameState.sutlu_fed_today()
 	friends_button.visible = not GameState.neighbors_unlocked().is_empty()
@@ -445,6 +457,8 @@ func _interact(id: String) -> void:
 			[["Kolay gelsin", _close_dialog]], id)
 	elif id == "sutlu":
 		_talk_sutlu()
+	elif id.begins_with("tarh"):
+		_talk_bed(int(id.substr(4)))
 	elif id == "gozluk":
 		pass
 	else:
@@ -473,7 +487,7 @@ func _talk_neighbor(id: String) -> void:
 	var n := Neighbors.get_neighbor(id)
 	if not GameState.favor_available(id) or not task.is_empty():
 		var line: String = n["chat"][randi() % n["chat"].size()]
-		_say(line, [["Hadi kolay gelsin", _close_dialog]], id)
+		_say(line, _neighbor_extras(id) + [["Hadi kolay gelsin", _close_dialog]], id)
 		return
 	var others := ["fatma"]
 	for o in GameState.neighbors_unlocked():
@@ -482,7 +496,19 @@ func _talk_neighbor(id: String) -> void:
 	if GameState.hearts(id) == 0:
 		info["intro"] = "Sen Fatma'nın yardımcısısın değil mi? Ben %s. %s" % [n["name"], info["intro"]]
 	var go := _start_game.bind("yemek", info) if info["kind"] == "game" else _start_task.bind(id, info)
-	_say(info["intro"], [["Olur", go], ["Sonra", _close_dialog]], id)
+	_say(info["intro"], [["Olur", go]] + _neighbor_extras(id) + [["Sonra", _close_dialog]], id)
+
+
+## Komşuyla konuşurken ricanın dışında yapılabilecekler (bostan hediyesi vb.).
+func _neighbor_extras(id: String) -> Array:
+	var out := []
+	if GameState.can_gift(id):
+		out.append(["Bostandan hediye ver", _gift_harvest.bind(id)])
+	if id == "ahmet":
+		out.append(["Bir el tavla atalım", _open_fun.bind("tavla", "ahmet")])
+	if id == "filiz":
+		out.append(["Çay demlemeyi öğret", _open_fun.bind("cay", "filiz")])
+	return out
 
 
 ## Dünyada yürüyerek yapılacak bir işi başlatır.
@@ -605,6 +631,48 @@ func _talk_sutlu() -> void:
 	Sfx.play("meow", -7.0)
 
 
+# --- bostan -------------------------------------------------------------------
+
+func _talk_bed(i: int) -> void:
+	match GameState.bed_state(i):
+		"empty":
+			var btns := []
+			for crop in GameState.CROPS:
+				btns.append([GameState.CROPS[crop]["name"].capitalize(), _plant.bind(i, crop)])
+			btns.append(["Sonra", _close_dialog])
+			_say("Bu tarh boş. Ne ekelim? Yarın gelip toplarsın, komşulara da hediye edersin.", btns)
+		"growing":
+			var crop: String = GameState.bostan[i]["crop"]
+			_say("%s filizlendi bile! Yarın olgunlaşır, gel topla." % GameState.CROPS[crop]["name"].capitalize(),
+				[["Tamam", _close_dialog]])
+		"ripe":
+			var crop: String = GameState.bostan[i]["crop"]
+			var n := GameState.harvest_bed(i)
+			Sfx.play("good")
+			_say("Maşallah, %d %s topladın! Komşulara götür, çok sevinirler. Tarh yine boşaldı, yenisini ekebilirsin." % [n, GameState.CROPS[crop]["name"]],
+				[["Yine ek", _talk_bed.bind(i)], ["Tamam", _close_dialog]])
+
+
+func _plant(i: int, crop: String) -> void:
+	GameState.plant(i, crop)
+	Sfx.play("tap")
+	_say("%s ektin, suyunu da verdin. Yarın olgunlaşır." % GameState.CROPS[crop]["name"].capitalize(), [["Tamam", _close_dialog]])
+
+
+func _gift_harvest(id: String) -> void:
+	var r := GameState.gift_harvest(id)
+	if r.is_empty():
+		_close_dialog()
+		return
+	Sfx.play("good")
+	var text := "Aa, bostanından %s mı getirdin? Ellerine sağlık evladım! Al bakalım, %d kurabiye." % [GameState.CROPS[r["crop"]]["name"], r["reward"]]
+	text += "\n\nDostluk: %d/%d kalp." % [r["hearts"], Neighbors.MAX_HEARTS]
+	if r["gift"] != 0:
+		Sfx.play("levelup", -4.0)
+		text += " Sana bir de hediyem var!"
+	_say(text, [["Afiyet olsun", _close_dialog]], id)
+
+
 func _feed_sutlu() -> void:
 	var love := GameState.feed_sutlu()
 	world.feed_sutlu()
@@ -706,6 +774,53 @@ func _pulse(node: Control) -> void:
 	var tw := node.create_tween().set_loops(4)
 	tw.tween_property(node, "modulate", Color(1.25, 1.15, 0.7), 0.35)
 	tw.tween_property(node, "modulate", Color.WHITE, 0.35)
+
+
+## Kendi evinin içi: kurabiyeyle eşya alıp yerleştirme.
+func _open_home() -> void:
+	if game != null or busy or tutorial_step >= 0:
+		return
+	_close_dialog()
+	game = load("res://scripts/minigames/evim.gd").new().setup({})
+	add_child(game)
+	var back := UI.button("Mahalleye dön", _quit_game, 18)
+	back.custom_minimum_size = Vector2(180, 48)
+	game.add_back(back)
+	_refresh()
+
+
+## Ahmet Amca'yla tavla ya da Filiz Teyze'yle çay demleme. Günün ilk
+## oyununda küçük bir ödül var; sonra istediğin kadar oynarsın.
+func _open_fun(kind: String, who: String) -> void:
+	_close_dialog()
+	game = load("res://scripts/minigames/%s.gd" % kind).new().setup({})
+	game.finished.connect(_on_fun_finished.bind(kind, who))
+	add_child(game)
+	var back := UI.button("Mahalleye dön", _quit_game, 18)
+	back.custom_minimum_size = Vector2(180, 48)
+	game.add_back(back)
+	_refresh()
+
+
+func _on_fun_finished(success: bool, kind: String, who: String) -> void:
+	game.queue_free()
+	game = null
+	var key := "oyun_" + kind
+	var first := not GameState.gifts_today.has(key)
+	var reward := 0
+	if first:
+		GameState.gifts_today[key] = true
+		reward = (6 if success else 2) if kind == "tavla" else (4 if success else 1)
+		GameState.add_kurabiye(reward)
+	var text := ""
+	match kind:
+		"tavla":
+			text = "Eline sağlık, beni yendin! Kırk yıldır yenilmemiştim valla." if success else "Bu sefer ben kazandım ama iyi oynadın delikanlı. Yarın rövanş!"
+		"cay":
+			text = "Tavşan kanı olmuş, mis gibi! Sen bu işi öğrendin." if success else "Olsun evladım, çay demlemek sabır ister. Yine gel."
+	if reward > 0:
+		text += " Al bakalım, %d kurabiye." % reward
+	_say(text, [["Sağ ol", _close_dialog]], who)
 
 
 func _quit_game() -> void:
@@ -842,6 +957,29 @@ func _screenshot_tour(dir: String) -> void:
 	await _shot(dir, "2_elma")
 	_tp(Vector3(6.0, 0, -3.0))
 	await _shot(dir, "2_evler")
+	var yesterday := Time.get_date_string_from_unix_time(Time.get_unix_time_from_system() - 86400)
+	GameState.plant(0, "domates")
+	GameState.bostan[0]["planted"] = yesterday
+	GameState.plant(1, "biber")
+	GameState.plant(2, "karpuz")
+	GameState.bostan[2]["planted"] = yesterday
+	GameState.plant(3, "havuc")
+	GameState.bostan[3]["planted"] = yesterday
+	_refresh()
+	_tp(Vector3(3.5, 0, 5.4))
+	await _shot(dir, "2_bostan")
+	_interact("tarh0")
+	await _shot(dir, "2_bostan_hasat")
+	_close_dialog()
+	world.update_sky(true, "aksam", 0)
+	_tp(Vector3(0.4, 0, 0.5))
+	await _shot(dir, "7_aksam")
+	world.update_sky(true, "gece", 0)
+	await _shot(dir, "7_gece")
+	world.update_sky(true, "ogle", 1)
+	await get_tree().create_timer(1.0).timeout
+	await _shot(dir, "7_yagmur")
+	world.update_sky(true, "ogle", 0)
 	_tp(Vector3(-0.5, 0, -3.0))
 	_interact("sutlu")
 	await _shot(dir, "2_sutlu")

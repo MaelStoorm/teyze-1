@@ -291,6 +291,69 @@ static func bridge(width := 1.8, length := 2.6) -> Node3D:
 
 
 ## Çiçek tarhı: ahşap kenarlı, toprak ve üstünde çiçekler (çiçekleri çağıran ekler).
+## Bostan korkuluğu: sopa, saman şapka, ekose gömlek.
+static func scarecrow() -> Node3D:
+	var n := Node3D.new()
+	Models.part(n, Models.cyl(0.04, 0.05, 1.7, 6), "#8a5a3b", Vector3(0, 0.85, 0))
+	Models.part(n, Models.box(1.1, 0.06, 0.06), "#8a5a3b", Vector3(0, 1.25, 0))
+	Models.part(n, Models.box(0.5, 0.5, 0.26), "#c8412f", Vector3(0, 1.15, 0))
+	for x in [-0.36, 0.36]:
+		Models.part(n, Models.box(0.24, 0.16, 0.18), "#c8412f", Vector3(x, 1.25, 0))
+		Models.part(n, Models.ball(0.07, 6), "#e8c66a", Vector3(x * 1.5, 1.25, 0), Vector3.ZERO, Vector3(1.4, 0.6, 1))
+	Models.part(n, Models.ball(0.2, 10), "#f2e2b0", Vector3(0, 1.58, 0))
+	for x in [-0.07, 0.07]:
+		Models.part(n, Models.ball(0.025, 6), "#3b2a1e", Vector3(x, 1.62, 0.18))
+	Models.part(n, Models.cyl(0.36, 0.36, 0.03, 12), "#e8c66a", Vector3(0, 1.74, 0))
+	Models.part(n, Models.cyl(0.14, 0.17, 0.18, 10), "#e8c66a", Vector3(0, 1.84, 0))
+	Models.part(n, Models.cyl(0.175, 0.175, 0.04, 10), "#c8412f", Vector3(0, 1.79, 0))
+	return n
+
+
+## Elde tutulan şemsiye (karakterin yerel ölçüsünde).
+static func umbrella(color: String) -> Node3D:
+	var n := Node3D.new()
+	n.name = "Semsiye"
+	Models.part(n, Models.cyl(0.015, 0.015, 1.1, 5), "#5c3a26", Vector3(0, 1.25, 0))
+	Models.part(n, Models.ball(0.62, 12, true), color, Vector3(0, 1.72, 0), Vector3.ZERO, Vector3(1, 0.45, 1))
+	Models.part(n, Models.ball(0.04, 6), "#fff4dc", Vector3(0, 2.0, 0))
+	return n
+
+
+## Bostan tarhındaki ekin: ripe değilse küçük filizler, olgunsa meyvesiyle.
+static func crop(kind: String, ripe: bool) -> Node3D:
+	var n := Node3D.new()
+	var spots := [Vector3(-0.5, 0, -0.22), Vector3(0.0, 0, -0.22), Vector3(0.5, 0, -0.22), Vector3(-0.5, 0, 0.22), Vector3(0.0, 0, 0.22), Vector3(0.5, 0, 0.22)]
+	if kind == "karpuz":
+		spots = [Vector3(-0.4, 0, 0), Vector3(0.4, 0, 0)]
+	for p in spots:
+		if not ripe:
+			for k in 2:  # iki küçük yaprak
+				Models.part(n, Models.ball(0.06, 6), "#6cbf4a", p + Vector3((k - 0.5) * 0.08, 0.07, 0), Vector3(0, 0, (k - 0.5) * 60), Vector3(1.4, 0.5, 0.9))
+			Models.part(n, Models.cyl(0.012, 0.012, 0.08, 4), "#4f8a3a", p + Vector3(0, 0.04, 0))
+			continue
+		match kind:
+			"domates", "biber":
+				Models.part(n, Models.cyl(0.02, 0.025, 0.42, 5), "#4f8a3a", p + Vector3(0, 0.21, 0))
+				Models.part(n, Models.ball(0.16, 8), "#5aa83e", p + Vector3(0, 0.36, 0), Vector3.ZERO, Vector3(1, 0.8, 1))
+				for k in 3:
+					var a: float = k * TAU / 3.0 + p.x
+					var q: Vector3 = p + Vector3(cos(a) * 0.13, 0.26 + k * 0.04, sin(a) * 0.13)
+					if kind == "domates":
+						Models.part(n, Models.ball(0.065, 8), "#e0402e", q)
+					else:
+						Models.part(n, Models.capsule(0.035, 0.16), "#3f9a35" if k != 1 else "#e0402e", q, Vector3(0, 0, 20))
+			"havuc":
+				Models.part(n, Models.cyl(0.05, 0.06, 0.06, 8), "#f08a24", p + Vector3(0, 0.02, 0))
+				for k in 3:
+					Models.part(n, Models.ball(0.05, 6), "#5aa83e", p + Vector3((k - 1) * 0.04, 0.14, 0), Vector3(0, 0, (k - 1) * 25), Vector3(0.5, 1.8, 0.5))
+			"karpuz":
+				Models.part(n, Models.ball(0.26, 12), "#3f8a35", p + Vector3(0, 0.2, 0), Vector3.ZERO, Vector3(1.2, 0.9, 1))
+				for k in 4:
+					Models.part(n, Models.box(0.04, 0.47, 0.5), "#2b6a2a", p + Vector3((k - 1.5) * 0.14, 0.2, 0), Vector3.ZERO, Vector3(1, 1, 1))
+				Models.part(n, Models.ball(0.08, 6), "#5aa83e", p + Vector3(0.3, 0.05, 0.2), Vector3.ZERO, Vector3(1.5, 0.4, 1))
+	return n
+
+
 static func flower_bed(size: Vector2) -> Node3D:
 	var n := Node3D.new()
 	Models.part(n, Models.box(size.x, 0.18, size.y), "#8a5a3b", Vector3(0, 0.09, 0))
