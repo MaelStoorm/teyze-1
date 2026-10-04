@@ -160,7 +160,7 @@ func _initialize() -> void:
 	main.game.finished.emit(true)
 	assert(gs.kurabiye == k0 + 10)
 	main._close_dialog()
-	for pair in [["orgu", "miyase"], ["manti", "hulya"]]:
+	for pair in [["orgu", "miyase"], ["manti", "hulya"], ["balik", "ahmet"]]:
 		var labels: Array = main._neighbor_extras(pair[1]).map(func(b): return b[0])
 		assert(labels.size() >= 1, "komşunun oyun düğmesi olmalı")
 		main._open_fun(pair[0], pair[1])
@@ -168,7 +168,7 @@ func _initialize() -> void:
 		main.game.finished.emit(true)
 		assert(main.game == null and gs.album.has(pair[0]))
 		main._close_dialog()
-	assert(gs.kurabiye == k0 + 20)
+	assert(gs.kurabiye == k0 + 25)
 	main._open_home()
 	assert(main.game != null)
 	assert(main.game.choose(load("res://scripts/ev_esyalar.gd").items_for("hali")[0]["id"]))

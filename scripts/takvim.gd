@@ -30,7 +30,7 @@ func setup(gift: int, surprise: String) -> Takvim:
 	head.alignment = BoxContainer.ALIGNMENT_CENTER
 	head.add_theme_constant_override("separation", 8)
 	head.add_child(UI.sprite("takvim", 34))
-	head.add_child(UI.label("Teyzenin Hediye Takvimi", 26))
+	head.add_child(UI.label("Teyzenin Hediye Takvimi", _cap(26)))
 	v.add_child(head)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -52,10 +52,10 @@ func setup(gift: int, surprise: String) -> Takvim:
 		text += " %d gündür hiç aksatmadın!" % GameState.streak
 	if today < 7:
 		text += " Yarın da gel, %d kurabiye olur." % GameState.GIFT_DAYS[today]
-	var msg := UI.label(text, 19, UI.INK, true)
+	var msg := UI.label(text, _cap(19), UI.INK, true)
 	msg.custom_minimum_size.x = 520
 	v.add_child(msg)
-	var ok := UI.button("Günaydın teyzecim", _close, 21)
+	var ok := UI.button("Günaydın teyzecim", _close, _cap(21))
 	ok.custom_minimum_size = Vector2(260, 52)
 	ok.size_flags_horizontal = SIZE_SHRINK_CENTER
 	v.add_child(ok)
@@ -82,14 +82,19 @@ func _day_card(d: int, today: int) -> Control:
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.add_theme_constant_override("separation", 2)
 	p.add_child(v)
-	v.add_child(UI.label("%d. gün" % d, 15))
+	v.add_child(UI.label("%d. gün" % d, _cap(15)))
 	var icon := UI.sprite("kese" if d == 7 else "kurabiye", 34)
 	icon.size_flags_horizontal = SIZE_SHRINK_CENTER
 	if past:
 		icon.modulate = Color(1, 1, 1, 0.45)
 	v.add_child(icon)
-	v.add_child(UI.label("✓" if past else str(GameState.GIFT_DAYS[d - 1]), 18, Color("3f8a3a") if past else UI.INK))
+	v.add_child(UI.label("✓" if past else str(GameState.GIFT_DAYS[d - 1]), _cap(18), Color("3f8a3a") if past else UI.INK))
 	return p
+
+
+## Takvim tek ekrana sığsın: büyük yazı ayarında yazılar biraz daha az büyür.
+func _cap(size: int) -> int:
+	return int(size * minf(UI.text_scale, 1.15) / UI.text_scale)
 
 
 func _close() -> void:

@@ -581,6 +581,7 @@ func _neighbor_extras(id: String) -> Array:
 		out.append(["Bostandan hediye ver", _gift_harvest.bind(id)])
 	if id == "ahmet":
 		out.append(["Bir el tavla atalım", _open_fun.bind("tavla", "ahmet")])
+		out.append(["Göle balığa gidelim", _open_fun.bind("balik", "ahmet")])
 	if id == "filiz":
 		out.append(["Çay demlemeyi öğret", _open_fun.bind("cay", "filiz")])
 	if id == "miyase":
@@ -991,7 +992,8 @@ func _next_toast() -> void:
 	add_child(p)
 	Sfx.play("levelup", -8.0, 1.2)
 	var tw := p.create_tween()
-	tw.tween_method(func(y: float): p.offset_top = y; p.offset_bottom = y, -90.0, 10.0, 0.35) \
+	var y_end := top_row.size.y + 20.0 if top_row.visible else 10.0  # göstergenin altında
+	tw.tween_method(func(y: float): p.offset_top = y; p.offset_bottom = y, -90.0, y_end, 0.35) \
 			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw.tween_interval(2.4)
 	tw.tween_property(p, "modulate:a", 0.0, 0.4)
@@ -1298,6 +1300,10 @@ func _screenshot_tour(dir: String) -> void:
 	_open_fun("cay", "filiz")
 	await _shot(dir, "8_cay")
 	_quit_game()
+	for kind in [["balik", "ahmet"], ["orgu", "miyase"], ["manti", "hulya"]]:
+		_open_fun(kind[0], kind[1])
+		await _shot(dir, "8_" + kind[0])
+		_quit_game()
 	_talk_neighbor("ahmet")
 	await _shot(dir, "8_ahmet")
 	_close_dialog()
