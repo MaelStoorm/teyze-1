@@ -15,6 +15,9 @@ const KAHVE_POS := Vector3(-8.5, 0, -0.6)
 const FARM := Rect2(6.5, 1.5, 6.5, 7.0)
 const POND_POS := Vector3(-9.5, 0, 7.5)
 const BOWL_POS := Vector3(-0.9, 0, -5.0)
+## Oyuncunun bostanındaki dört tarhın ortası.
+const BOSTAN := [Vector3(2.4, 0, 2.9), Vector3(4.6, 0, 2.9), Vector3(2.4, 0, 4.5), Vector3(4.6, 0, 4.5)]
+const BED_SIZE := Vector2(1.7, 1.1)
 ## Satın alınabilen süslerin kapladığı yer.
 const DECOR_BLOCKERS := {
 	"kedievi": Rect2(-4.9, -1.9, 1.2, 1.4), "semaver": Rect2(1.4, -0.9, 2.0, 1.2),
@@ -49,6 +52,24 @@ var sutlu: Node3D
 var sutlu_follow := false
 ## Uçan böcekler: {"node", "center", "r", "speed", "phase", "kind"}
 var _flyers: Array[Dictionary] = []
+var _bostan_root: Node3D
+# gün-gece ve hava
+var _env_node: WorldEnvironment
+var _sun: DirectionalLight3D
+var _rain: CPUParticles3D
+var _glows: Array[MeshInstance3D] = []
+var _umbrellas: Array[Node3D] = []
+var _sky_check := 0.0
+var sky_phase := ""
+var raining := false
+## Saat dilimleri: gökyüzü, ortam ışığı, güneş rengi/gücü/açısı.
+const PHASES := {
+	"sabah": {"sky": "cde9f4", "amb": "e8eeff", "amb_e": 0.45, "sun": "ffe2bd", "sun_e": 0.75, "rot": Vector3(-35, 70, 0)},
+	"ogle": {"sky": "bfe3f0", "amb": "dfe9ff", "amb_e": 0.42, "sun": "fff3dc", "sun_e": 0.8, "rot": Vector3(-55, 32, 0)},
+	"aksam": {"sky": "f5c79a", "amb": "ffdcc4", "amb_e": 0.46, "sun": "ffb072", "sun_e": 0.72, "rot": Vector3(-25, -45, 0)},
+	"gece": {"sky": "1f2a52", "amb": "8a9fe0", "amb_e": 0.55, "sun": "b8c8ff", "sun_e": 0.26, "rot": Vector3(-50, 10, 0)},
+}
+var _bostan_sig := ""
 const PLAYER_SPEED := 2.6
 ## Yürüme kolu (main bağlar); sürülürken dokunarak yürüme iptal olur.
 var joystick: Joystick
@@ -72,6 +93,7 @@ func _build() -> void:
 
 	# Wii oyunları gibi: yumuşak, aydınlık, hafif parlak oyuncak görünüşü
 	var env := WorldEnvironment.new()
+	_env_node = env
 	env.environment = Environment.new()
 	env.environment.background_mode = Environment.BG_COLOR
 	env.environment.background_color = Color("bfe3f0")
@@ -93,6 +115,7 @@ func _build() -> void:
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	sun.directional_shadow_max_distance = 24.0
 	root.add_child(sun)
+	_sun = sun
 
 	camera = Camera3D.new()
 	camera.fov = 45
@@ -116,6 +139,20 @@ func _build() -> void:
 	_solid(Models.lamp(), Vector3(0.9, 0, -2.4), 0, Rect2(0.7, -2.6, 0.4, 0.4))
 	_solid(Models.lamp(), Vector3(-6.0, 0, -2.4), 0, Rect2(-6.2, -2.6, 0.4, 0.4))
 	_solid(Models.lamp(), Vector3(6.0, 0, -2.4), 0, Rect2(5.8, -2.6, 0.4, 0.4))
+	for x in [0.9, -6.0, 6.0]:  # gece yanan fener camları
+		var g := MeshInstance3D.new()
+		g.name = "Fener%d" % _glows.size()
+		g.mesh = Models.box(0.24, 0.27, 0.24)
+		var gm := StandardMaterial3D.new()
+		gm.albedo_color = Color("ffe9a8")
+		gm.emission_enabled = true
+		gm.emission = Color("ffd77a")
+		gm.emission_energy_multiplier = 0.0
+		g.material_override = gm
+		g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		g.position = Vector3(x, 2.3, -2.4)
+		root.add_child(g)
+		_glows.append(g)
 	for spec in [[Vector3(4.3, 0, -1.0), 0], [Vector3(-4.4, 0, 1.0), 40], [Vector3(4.6, 0, 6.0), 80], [Vector3(-4.2, 0, 7.5), 10],
 			[Vector3(-12.6, 0, 1.2), 20], [Vector3(-12.2, 0, 12.8), 50], [Vector3(9.2, 0, 12.6), 70], [Vector3(12.6, 0, 11.0), 0],
 			[Vector3(-6.4, 0, -1.6), 30], [Vector3(12.8, 0, -1.8), 60], [Vector3(-9.0, 0, 13.6), 15]]:
@@ -128,6 +165,21 @@ func _build() -> void:
 	_solid(Models.crate(), Vector3(3.8, 0, 0.6), 0, Rect2(3.4, 0.2, 1.4, 1.5))
 	_place(root, Models.crate(), Vector3(4.3, 0, 1.3))
 	_solid(Models.bench(), Vector3(-2.3, 0, 2.2), 90, Rect2(-2.6, 1.5, 0.6, 1.4))
+
+	# oyuncunun bostanı: dört tarh, ekilenler ertesi gün olgunlaşır
+	for i in BOSTAN.size():
+		var c: Vector3 = BOSTAN[i]
+		_solid(Props.flower_bed(BED_SIZE), c, 0, Rect2(c.x - BED_SIZE.x / 2, c.z - BED_SIZE.y / 2, BED_SIZE.x, BED_SIZE.y))
+		var anchor := Node3D.new()
+		anchor.position = c
+		root.add_child(anchor)
+		targets["tarh%d" % i] = {"node": anchor, "h": 0.4, "spot": c + Vector3(0, 0, BED_SIZE.y / 2 + 0.45) if i >= 2 else c + Vector3(0, 0, -BED_SIZE.y / 2 - 0.45)}
+	_solid(Props.scarecrow(), Vector3(6.0, 0, 3.6), -20, Rect2(5.7, 3.3, 0.6, 0.6))
+	var bl := Props.label3d("BOSTANIN", 110, Color("4f7a2a"))
+	bl.position = Vector3(3.5, 1.4, 1.9)
+	root.add_child(bl)
+	_bostan_root = Node3D.new()
+	root.add_child(_bostan_root)
 
 	# Ahmet Amca'nın kahvehanesi
 	_solid(Props.kahvehane(), KAHVE_POS, 0, Rect2(-10.7, -1.9, 4.4, 2.7))
@@ -211,6 +263,8 @@ func _build() -> void:
 	refresh_neighbors()
 	_update_blockers()
 	_optimize()
+	_build_rain()
+	update_sky(true)
 
 
 ## Hareketsiz her şeyi birkaç büyük meshe birleştirir; hareket edenler
@@ -225,6 +279,7 @@ func _optimize() -> void:
 		moving.append(targets[id]["node"])
 	var keep: Array = moving.duplicate()
 	keep.append(_marker)
+	keep.append(_bostan_root)
 	keep.append_array(_decor_nodes.values())
 	Bake.merge_static(_root, keep)
 	for n in moving:
@@ -437,6 +492,123 @@ func refresh_decor() -> void:
 			_decor_nodes.erase(id)
 
 
+# --- gün-gece ve hava ------------------------------------------------------------
+
+## Telefonun saatine göre gün dilimi.
+static func phase_now() -> String:
+	var h: int = Time.get_time_dict_from_system()["hour"]
+	if h >= 6 and h < 11:
+		return "sabah"
+	if h >= 11 and h < 17:
+		return "ogle"
+	if h >= 17 and h < 20:
+		return "aksam"
+	return "gece"
+
+
+## Gökyüzünü ve ışığı saate ve havaya göre ayarlar; değişince yumuşakça geçer.
+func update_sky(instant := false, phase := "", rain := -1) -> void:
+	var ph := phase if phase != "" else phase_now()
+	var wet: bool = GameState.is_rainy() if rain < 0 else rain == 1
+	if ph == sky_phase and wet == raining and not instant:
+		return
+	sky_phase = ph
+	raining = wet
+	var p: Dictionary = PHASES[ph]
+	var sky := Color(p["sky"])
+	var amb := Color(p["amb"])
+	var sun_e: float = p["sun_e"]
+	if wet:  # bulutlu: gri gök, yumuşak gölge
+		sky = sky.lerp(Color("9fb0bd"), 0.6)
+		amb = amb.lerp(Color("d6dde6"), 0.5)
+		sun_e *= 0.55
+	var env := _env_node.environment
+	var dur := 0.0 if instant else 3.0
+	var tw := create_tween().set_parallel(true)
+	tw.tween_property(env, "background_color", sky, dur)
+	tw.tween_property(env, "ambient_light_color", amb, dur)
+	tw.tween_property(env, "ambient_light_energy", p["amb_e"], dur)
+	tw.tween_property(_sun, "light_color", Color(p["sun"]), dur)
+	tw.tween_property(_sun, "light_energy", sun_e, dur)
+	tw.tween_property(_sun, "rotation_degrees", p["rot"], dur)
+	_sun.shadow_opacity = 0.3 if wet else 0.6
+	for g in _glows:
+		var m: StandardMaterial3D = g.material_override
+		tw.tween_property(m, "emission_energy_multiplier", 2.2 if ph == "gece" else (0.6 if ph == "aksam" else 0.0), dur)
+	if _rain:
+		_rain.emitting = wet and GameState.settings.get("grafik", 1) > 0
+		_rain.visible = _rain.emitting
+	_set_umbrellas(wet)
+
+
+func _build_rain() -> void:
+	_rain = CPUParticles3D.new()
+	_rain.amount = 320
+	_rain.lifetime = 0.9
+	_rain.local_coords = false
+	_rain.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	_rain.emission_box_extents = Vector3(13, 0.5, 10)
+	_rain.direction = Vector3(0.1, -1, 0)
+	_rain.spread = 3.0
+	_rain.initial_velocity_min = 12.0
+	_rain.initial_velocity_max = 14.0
+	_rain.gravity = Vector3(0, -6, 0)
+	var drop := Models.box(0.03, 0.5, 0.03)
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_color = Color(0.9, 0.95, 1.0, 0.7)
+	drop.material = m
+	_rain.mesh = drop
+	_rain.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_rain.emitting = false
+	_rain.visible = false
+	_root.add_child(_rain)
+
+
+## Yağmurda teyzeler ve oyuncu şemsiye açar.
+func _set_umbrellas(on: bool) -> void:
+	for u in _umbrellas:
+		if is_instance_valid(u):
+			u.queue_free()
+	_umbrellas.clear()
+	if not on:
+		return
+	var colors := ["#d6577a", "#3e8fb0", "#e0a43a", "#7a4e8a", "#4f8a5b"]
+	var people: Array = [player, teyze]
+	people.append_array(neighbors.values())
+	for i in people.size():
+		var who: Node3D = people[i]
+		if not is_instance_valid(who):
+			continue
+		var u := Props.umbrella(colors[i % colors.size()])
+		u.position = Vector3(0.18, 0, 0.05)
+		who.add_child(u)
+		Bake.merge_rig(u)
+		_umbrellas.append(u)
+
+
+## Bostandaki ekinleri kayda göre çizer (filiz ya da olgun).
+func refresh_bostan() -> void:
+	var sig := ""
+	for i in BOSTAN.size():
+		sig += GameState.bed_state(i) + str(GameState.bostan[i].get("crop", "")) + ","
+	if sig == _bostan_sig:
+		return
+	_bostan_sig = sig
+	for c in _bostan_root.get_children():
+		c.queue_free()
+	for i in BOSTAN.size():
+		var st := GameState.bed_state(i)
+		if st == "empty":
+			continue
+		var crop: String = GameState.bostan[i]["crop"]
+		var n := Props.crop(crop, st == "ripe")
+		n.position = BOSTAN[i] + Vector3(0, 0.18, 0)
+		_bostan_root.add_child(n)
+		Bake.merge_rig(n)
+
+
 ## Açılmış komşuları evlerinin önüne koyar.
 func refresh_neighbors() -> void:
 	for n in GameState.neighbors_unlocked():
@@ -449,6 +621,8 @@ func refresh_neighbors() -> void:
 		body.scale = Vector3.ONE * 1.4
 		_root.add_child(body)
 		Bake.merge_rig(body)
+		if raining:
+			_set_umbrellas(true)
 		var w := Walker.new()
 		w.speed = 1.1  # teyzeler acele etmez
 		w.bounds = BOUNDS
@@ -635,6 +809,12 @@ func _process(delta: float) -> void:
 	if _marker.visible:
 		_marker.scale = _marker.scale.lerp(Vector3.ONE * 0.4, delta * 3.0)
 	_drive()
+	_sky_check -= delta
+	if _sky_check <= 0.0:
+		_sky_check = 30.0
+		update_sky()
+	if _rain and _rain.emitting:
+		_rain.position = _cam_focus + Vector3(0, 9, 1)
 	_wander(delta)
 	_swim()
 	_fly()
@@ -805,3 +985,5 @@ func set_player_look(_look: Dictionary) -> void:
 	player.queue_free()
 	_make_player(pos, rot)
 	_update_blockers()
+	if raining:
+		_set_umbrellas(true)
