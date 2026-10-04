@@ -1,0 +1,80 @@
+Animal sound effects - provenance and licenses
+=============================================
+All five files are real field/studio recordings (not synthesized). All are CC0 1.0
+(public domain dedication) at the original recording. No attribution is legally
+required for any of them. Optional credits are listed below anyway.
+
+Processing applied to every file (by us): downmix to mono, resample to 44100 Hz,
+DC removal, trim leading/trailing silence, peak-normalize to -3 dBFS,
+20 ms linear fade in/out, 16-bit PCM WAV.
+
+Note: freesound.org could not be reached from the build container, so the
+original freesound pages were NOT checked directly. The licenses come from the
+per-file credit tables in the GitHub repos named below.
+
+----------------------------------------------------------------------
+moo.wav  (2.15 s)
+  Original recording: "Cow moos" by josephsardin (Joseph Sardin, BigSoundBank)
+                      https://freesound.org/s/177253/
+  License: CC0 1.0
+  Downloaded from: https://github.com/AntumMT/mod-sounds
+                   (commit b5b9f68389a264d39733331e0a1d89ddc8ce77f8),
+                   file sounds_src/sounds_cow_moo_02.flac (lossless)
+  Verified: the repo's sources.md table says "cow_moo* | JosephSardin | CC0" and
+            links freesound 177253. A second repo agrees: DJWoodZ/Animal-Sounds
+            README credits the same recording as CC0 1.0.
+
+cluck.wav  (0.93 s)
+  Original recording: "Chicken Single Alarm Call" by Rudmer_Rotteveel
+                      https://www.freesound.org/people/Rudmer_Rotteveel/sounds/316920/
+  License: CC0 1.0 (the derivative is also released as CC0 1.0 by DJ WoodZ)
+  Downloaded from: https://github.com/DJWoodZ/Animal-Sounds
+                   (commit 0fd2848e54f6278c47ed7592e7ff90488e3a6e87),
+                   file src/sounds/chicken-cluck.ogg
+  Verified: README "Credits > Sounds" section says chicken-cluck.ogg is a
+            derivative of that recording "used under CC0 1.0" and is "licensed under
+            CC0 1.0 by DJ WoodZ". The README License section says the
+            "sounds (src/sounds/) are licensed under CC0 1.0".
+
+quack.wav  (0.22 s, one single quack)
+  Original recording: "single quack from a duck", freesound sound 418509
+                      https://freesound.org/s/418509/
+                      (sources.md credits the author as "DrMaysta"; a web search
+                      showed the freesound page under the user "Mikes-MultiMedia",
+                      which may be a renamed account)
+  License: CC0 1.0
+  Downloaded from: https://github.com/AntumMT/mod-sounds
+                   (commit b5b9f68389a264d39733331e0a1d89ddc8ce77f8),
+                   file sounds_src/sounds_duck_quack_02.flac (lossless)
+  Verified: sources.md table row "duck_quack_02 | DrMaysta | CC0", linked to
+            freesound 418509. (We did NOT use duck_quack_01, which is CC BY-SA, or
+            duck_quack_03, which is CC BY.)
+
+meow.wav  (1.05 s)
+  Original recording: "Cat Meows - Food Time 4.wav" from "Micro Pack - Cat Meows"
+                      by Ben Burnes (Abstraction Music, gumroad.com/ben_burnes)
+  License: CC0 1.0 / public domain
+  Downloaded from: https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds
+                   (commit f2b6264f9ab89fabc266914c3654685d68c5a39b),
+                   folder "Micro Pack - Cat Meows/"
+  Verified: the author's _README.txt in that folder says: "These sounds are
+            public domain (Creative Commons 0). You are free to enhance, reuse,
+            remix, or do whatever with these files. ... linking back to the pack or
+            dropping my name ... is encouraged, but not required." The repo
+            LICENSE file is also CC0 1.0 Universal.
+
+woof.wav  (0.45 s, one single bark)
+  Original recording: "one bark of a poodle dog" by fabiopx
+                      http://www.freesound.org/people/fabiopx/sounds/170015/
+  License: CC0 1.0 (original). The excerpt we used comes from the ESC-50
+           dataset's ESC-10 subset, which ESC-50 licenses as CC BY 3.0.
+           The original is CC0, so no attribution is required. If you want
+           to credit the dataset anyway:
+           "Dog bark derived from ESC-50 (K. J. Piczak, https://github.com/karolpiczak/ESC-50),
+            clip 3-170015-A, originally 'one bark of a poodle dog' by fabiopx (CC0)."
+  Downloaded from: https://raw.githubusercontent.com/karolpiczak/ESC-50/master/audio/3-170015-A-0.wav
+                   (repo HEAD 33c8ce9eb2cf0b1c2f8bcf322eb349b6be34dbb6)
+  Verified: ESC-50 LICENSE file, entry
+            "[3-170015-A.ogg]: clip derived from one bark of a poodle dog
+             (http://www.freesound.org/people/fabiopx/sounds/170015/) by fabiopx [CC0]".
+            meta/esc50.csv marks this clip as esc10=True.
