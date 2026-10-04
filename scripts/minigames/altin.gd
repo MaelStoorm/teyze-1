@@ -5,8 +5,8 @@ var guests: Array
 var gold := 0
 var visited := {}
 var gold_label: Label
-var list_box: VBoxContainer
-var visit_box: VBoxContainer
+var list_box: GridContainer
+var visit_box: HBoxContainer
 var current := -1
 
 
@@ -22,13 +22,17 @@ func build() -> void:
 	gold_label = UI.label("0 çeyrek", 24)
 	row.add_child(gold_label)
 	counter.add_child(row)
-	content.add_child(counter)
+	side.add_child(counter)
 
-	list_box = VBoxContainer.new()
-	list_box.add_theme_constant_override("separation", 10)
+	list_box = GridContainer.new()
+	list_box.columns = 2
+	list_box.add_theme_constant_override("h_separation", 10)
+	list_box.add_theme_constant_override("v_separation", 10)
 	content.add_child(list_box)
-	visit_box = VBoxContainer.new()
-	visit_box.add_theme_constant_override("separation", 12)
+	visit_box = HBoxContainer.new()
+	visit_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	visit_box.size_flags_vertical = SIZE_EXPAND_FILL
+	visit_box.add_theme_constant_override("separation", 20)
 	content.add_child(visit_box)
 	_show_list()
 
@@ -47,12 +51,13 @@ func _show_list() -> void:
 		var g: Dictionary = guests[i]
 		var b := Button.new()
 		b.custom_minimum_size = Vector2(0, 76)
+		b.size_flags_horizontal = SIZE_EXPAND_FILL
 		var h := HBoxContainer.new()
 		h.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 		h.offset_left = 8
 		h.mouse_filter = MOUSE_FILTER_IGNORE
-		h.add_child(Portrait.new(Vector2(64, 70), false, g))
-		var name := UI.label(g["name"], 22)
+		h.add_child(Portrait.new(Vector2(56, 70), false, g))
+		var name := UI.label(g["name"], 18)
 		name.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		name.size_flags_horizontal = SIZE_EXPAND_FILL
 		name.mouse_filter = MOUSE_FILTER_IGNORE
@@ -73,13 +78,13 @@ func _visit(i: int) -> void:
 	list_box.visible = false
 	visit_box.visible = true
 	_clear(visit_box)
-	var p := Portrait.new(Vector2(110, 100), false, g)
-	p.size_flags_horizontal = SIZE_SHRINK_CENTER
+	var p := Portrait.new(Vector2(130, 150), false, g)
+	p.size_flags_vertical = SIZE_SHRINK_CENTER
 	visit_box.add_child(p)
 	say("%s: Hoş geldin evladım! Önce bir ikram, sonra altın." % g["name"])
 	var grid := GridContainer.new()
 	grid.columns = 2
-	grid.size_flags_horizontal = SIZE_SHRINK_CENTER
+	grid.size_flags_vertical = SIZE_SHRINK_CENTER
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
 	for k in Errands.IKRAM:

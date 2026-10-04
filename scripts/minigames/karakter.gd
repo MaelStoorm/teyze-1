@@ -11,9 +11,9 @@ func build() -> void:
 	look = Avatar.normalized(GameState.avatar)
 	header("Karakterin", "")
 	hint.visible = false
-	preview = ModelThumb.new(Avatar.build(look), Vector2(200, 190), 2.5, 0.85)
+	preview = ModelThumb.new(Avatar.build(look), Vector2(200, 170), 2.5, 0.85)
 	preview.size_flags_horizontal = SIZE_SHRINK_CENTER
-	content.add_child(preview)
+	side.add_child(preview)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -22,9 +22,10 @@ func build() -> void:
 	rows.add_theme_constant_override("separation", 8)
 	scroll.add_child(rows)
 	content.add_child(scroll)
-	var ok := UI.button("Tamam, mahalleye çık", _done, 22)
+	var ok := UI.button("Mahalleye çık", _done, 22)
 	ok.custom_minimum_size.y = 56
-	content.add_child(ok)
+	side.add_child(UI.spacer())
+	side.add_child(ok)
 	_fill()
 
 

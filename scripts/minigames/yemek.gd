@@ -34,7 +34,7 @@ func build() -> void:
 		item.add_child(m)
 		list.add_child(item)
 	list_panel.add_child(list)
-	content.add_child(list_panel)
+	side.add_child(list_panel)
 
 	pot = TextureButton.new()
 	pot.texture_normal = UI.tex("tencere")

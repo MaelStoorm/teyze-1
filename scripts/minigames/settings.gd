@@ -11,9 +11,14 @@ var reset_armed := false
 func build() -> void:
 	header("Ayarlar", "")
 	hint.visible = false
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	content.add_child(scroll)
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 14)
-	content.add_child(box)
+	box.size_flags_horizontal = SIZE_EXPAND_FILL
+	box.add_theme_constant_override("separation", 12)
+	scroll.add_child(box)
 
 	box.add_child(_text_slider())
 	box.add_child(_row("Ses efektleri", [["Açık", true], ["Kapalı", false]], "sound",
