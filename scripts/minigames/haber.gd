@@ -8,6 +8,7 @@ var step := 0
 var learn: Control
 var tell: Control
 var slots: Array = []
+var option_buttons := {}
 
 
 func build() -> void:
@@ -16,6 +17,9 @@ func build() -> void:
 	learn = _build_learn()
 	tell = _build_tell()
 	_show_learn()
+	if GameState.has_perk("defter"):
+		_choose(icons[0], option_buttons[icons[0]])
+		_show_learn()
 
 
 func _page() -> VBoxContainer:
@@ -81,6 +85,7 @@ func _build_tell() -> Control:
 		var b := UI.icon_button(k, Errands.ICON_NAMES[k], Callable())
 		b.custom_minimum_size = Vector2(96, 96)
 		b.pressed.connect(_choose.bind(k, b))
+		option_buttons[k] = b
 		grid.add_child(b)
 	v.add_child(grid)
 

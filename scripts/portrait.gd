@@ -6,7 +6,7 @@ var _model: Node3D
 var _t := 0.0
 
 
-func _init(size_px := Vector2(96, 110), full_body := false) -> void:
+func _init(size_px := Vector2(96, 110), full_body := false, scarf := "#d6577a", cardigan := "#4f8a5b") -> void:
 	custom_minimum_size = size_px
 	stretch = true
 	mouse_filter = MOUSE_FILTER_IGNORE
@@ -26,7 +26,7 @@ func _init(size_px := Vector2(96, 110), full_body := false) -> void:
 	env.environment.ambient_light_color = Color("e8eeff")
 	env.environment.ambient_light_energy = 0.6
 	vp.add_child(env)
-	_model = Models.teyze()
+	_model = Models.teyze(scarf, cardigan)
 	vp.add_child(_model)
 	var cam := Camera3D.new()
 	cam.fov = 30

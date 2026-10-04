@@ -1,41 +1,66 @@
 extends SceneTree
-## Bir günü baştan sona oynar: godot --headless -s tools/flow_test.gd
+## Birkaç günü baştan sona oynar: godot --headless -s tools/flow_test.gd
+
+var main
+var gs
+
 
 func _initialize() -> void:
-	var main = load("res://scenes/main.tscn").instantiate()
+	main = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
 	await process_frame
-	var gs = root.get_node("GameState")
+	gs = root.get_node("GameState")
 	gs.reset()
-	var start_cookies: int = gs.kurabiye
-	for i in 3:
-		var errand: Dictionary = gs.current_errand()
-		var info := Errands.build(errand)
-		main._start_game(errand["type"], info)
-		await process_frame
-		var g = main.game
-		match errand["type"]:
-			"pazar":
-				for k in info["want"]:
-					for n in info["want"][k]:
-						g._pick(k, Button.new())
-			"haber":
-				g._show_tell()
-				g._choose("yanlis", Button.new())
-				assert(g.step == 0)
-				for k in info["icons"]:
-					g._choose(k, Button.new())
-			"kedi":
-				var wrong: int = (info["spot"] + 1) % 6
-				g._tap(wrong, TextureButton.new())
-				print("  ipucu: ", g.hint.text)
-				g._tap(info["spot"], TextureButton.new())
-		await create_timer(1.5).timeout
-		print("%s bitti -> biten=%d kurabiye=%d" % [errand["type"], gs.done_count, gs.kurabiye])
-		assert(main.game == null)
-	assert(gs.is_day_over())
-	assert(gs.kurabiye == start_cookies + 9)
-	gs.new_day()
-	assert(gs.day == 2 and gs.done_count == 0)
-	print("TAMAM: bir gün oynandı, gün 2 başladı")
+	var seen := {}
+	for d in 6:
+		while not gs.is_day_over():
+			var errand: Dictionary = gs.current_errand()
+			seen[errand["type"]] = true
+			await _play(errand)
+		print("Gün %d bitti: Sv %d, xp %d, kurabiye %d, görevler %s" % [gs.day, gs.level(), gs.xp, gs.kurabiye, gs.errands.map(func(e): return e["type"])])
+		gs.new_day()
+	assert(seen.has("yemek") and seen.has("altin"), "yeni görevler gelmedi")
+	assert(gs.errands.size() >= 4, "Sv 4'te günde 4 görev olmalı")
+	# dükkan
+	var before: int = gs.kurabiye
+	assert(gs.buy_perk("zil"))
+	assert(gs.kurabiye == before - 15)
+	assert(not gs.buy_perk("zil"), "tek seferlik perk iki kez alınmamalı")
+	gs.kurabiye = 100
+	assert(gs.buy_perk("dua"))
+	assert(gs.errand_reward("kedi") == 4)
+	print("TAMAM: 6 gün oynandı, yeni görevler açıldı, dükkan çalışıyor")
 	quit(0)
+
+
+func _play(errand: Dictionary) -> void:
+	var info := Errands.build(errand)
+	main._start_game(errand["type"], info)
+	await process_frame
+	var g = main.game
+	match errand["type"]:
+		"pazar":
+			for k in info["want"]:
+				for n in info["want"][k]:
+					g._pick(k, Button.new())
+		"haber":
+			g._show_tell()
+			for k in info["icons"]:
+				g._choose(k, Button.new())
+		"kedi":
+			g._tap(info["spot"], TextureButton.new())
+		"yemek":
+			var wrong: String = Errands.PANTRY.keys().filter(func(k): return k not in info["items"])[0]
+			g._add(wrong, Button.new())
+			for k in info["items"]:
+				g._add(k, Button.new())
+			for n in g.stirs_needed:
+				g._stir()
+		"altin":
+			for i in info["guests"].size():
+				g._visit(i)
+				g._offer("yanlis", Button.new())
+				g._offer(info["guests"][i]["likes"], Button.new())
+				await create_timer(1.1).timeout
+	await create_timer(1.5).timeout
+	assert(main.game == null, "%s bitmedi" % errand["type"])

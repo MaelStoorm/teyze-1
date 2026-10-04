@@ -14,6 +14,7 @@ const SPOTS := [
 var cat_spot: int
 var found := false
 var tried := {}
+var buttons: Array = []
 
 
 func build() -> void:
@@ -27,6 +28,7 @@ func build() -> void:
 		b.size = b.texture_normal.get_size() * 0.85
 		b.position = SPOTS[i][1] - b.size / 2
 		b.pressed.connect(_tap.bind(i, b))
+		buttons.append(b)
 		add_child(b)
 
 
@@ -45,6 +47,13 @@ func _tap(i: int, b: TextureButton) -> void:
 	UI.shake(b)
 	b.modulate = Color(1, 1, 1, 0.6) if not tried.has(i) else b.modulate
 	tried[i] = true
+	if GameState.has_perk("zil") and tried.size() == 1:
+		var target: TextureButton = buttons[cat_spot]
+		var tw := target.create_tween().set_loops(6)
+		tw.tween_property(target, "modulate", Color(1.5, 1.4, 0.7), 0.25)
+		tw.tween_property(target, "modulate", Color.WHITE, 0.25)
+		say("Zil sesi! Çın çın... Pamuk parlayan yerde.", UI.GOOD)
+		return
 	say("Burada yok. Miyav sesi %s geliyor." % _direction(i), UI.ACCENT)
 
 
