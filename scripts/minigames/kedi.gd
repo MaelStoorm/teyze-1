@@ -40,7 +40,7 @@ func _tap(i: int, b: TextureButton) -> void:
 		return
 	if i == cat_spot:
 		found = true
-		Sfx.play("meow")
+		Sfx.play("meow", -5.0)
 		var cat := UI.sprite("cat", 70)
 		add_child(cat)
 		cat.position = b.global_position + Vector2(b.size.x / 2 - cat.size.x / 2, -20)

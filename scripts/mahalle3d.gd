@@ -732,7 +732,7 @@ func _gui_input(event: InputEvent) -> void:
 
 ## Hayvana dokununca sesini çıkarır ve zıplar.
 func _animal_react(id: String, snd: String) -> void:
-	Sfx.play(snd, -2.0, randf_range(0.92, 1.08))
+	Sfx.play(snd, -6.0, randf_range(0.95, 1.05))
 	var node: Node3D = targets[id]["node"]
 	var w: Walker = targets[id].get("walker")
 	if w:

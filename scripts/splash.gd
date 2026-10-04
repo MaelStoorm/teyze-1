@@ -14,6 +14,7 @@ var _t := 0.0
 var _spin := 6.0
 var _swirl_alpha := 1.0
 var _tap_label: Label
+var _studio_tw: Tween
 
 
 func _ready() -> void:
@@ -77,6 +78,7 @@ func _play_studio() -> void:
 	Sfx.play("whoosh", -2.0, 0.8)
 	var nm: Label = _studio.find_child("Name", true, false)
 	var tw := create_tween()
+	_studio_tw = tw
 	tw.tween_property(_logo, "scale", Vector2.ONE, 0.9).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw.parallel().tween_property(self, "_spin", 0.6, 1.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tw.tween_method(func(n: int):
@@ -116,6 +118,10 @@ func _draw() -> void:
 # --- 2. oyunun başlık ekranı ---------------------------------------------------
 
 func _to_title() -> void:
+	if _phase != 0:
+		return
+	if _studio_tw:
+		_studio_tw.kill()  # dokunup geçince studio animasyonu yarıda kalır
 	_phase = 1
 	queue_redraw()
 	var fade := create_tween()
