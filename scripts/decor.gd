@@ -17,11 +17,13 @@ const ALL := [
 		"price": 60, "pos": Vector3(0, 0, -3.7), "rot": 0.0},
 	# Komşuların dostluk hediyeleri: dükkanda satılmaz.
 	{"id": "kusevi", "name": "Filiz'in Kuş Evi", "desc": "Direğin ucunda serçelere küçük bir ev.",
-		"price": 0, "gift": true, "pos": Vector3(5.5, 0, -2.4), "rot": -30.0},
+		"price": 0, "gift": true, "pos": Vector3(5.2, 0, -5.0), "rot": -30.0},
 	{"id": "sardunya", "name": "Miyase'nin Sardunyaları", "desc": "Teneke saksılarda kırmızı sardunyalar.",
-		"price": 0, "gift": true, "pos": Vector3(-5.0, 0, 5.3), "rot": 90.0},
+		"price": 0, "gift": true, "pos": Vector3(-11.4, 0, -5.0), "rot": 0.0},
 	{"id": "salincak", "name": "Hülya'nın Salıncağı", "desc": "Mahalle çocukları için ahşap bir salıncak.",
-		"price": 0, "gift": true, "pos": Vector3(2.8, 0, 10.4), "rot": 0.0},
+		"price": 0, "gift": true, "pos": Vector3(11.3, 0, -1.2), "rot": 0.0},
+	{"id": "tavla", "name": "Ahmet'in Tavla Masası", "desc": "Gölgede bir tavla masası, iki tabure.",
+		"price": 0, "gift": true, "pos": Vector3(-5.8, 0, 3.6), "rot": 0.0},
 ]
 
 
@@ -99,6 +101,16 @@ static func build(id: String) -> Node3D:
 			Models.part(n, Models.prism(0.6, 0.25, 0.5), "#3e8fb0", Vector3(0, 2.28, 0))
 			Models.part(n, Models.cyl(0.08, 0.08, 0.03, 10), "#3b2a1e", Vector3(0, 1.98, 0.2), Vector3(90, 0, 0))
 			Models.part(n, Models.ball(0.07, 6), "#8a6a4a", Vector3(0.12, 2.45, 0.05))  # serçe
+		"tavla":
+			Models.part(n, Models.box(0.9, 0.06, 0.6), "#a86f48", Vector3(0, 0.7, 0))
+			Models.part(n, Models.box(0.6, 0.03, 0.4), "#7a4e2a", Vector3(0, 0.75, 0))
+			Models.part(n, Models.box(0.56, 0.035, 0.02), "#f4efe6", Vector3(0, 0.76, 0))
+			for x in [-0.35, 0.35]:
+				for z in [-0.22, 0.22]:
+					Models.part(n, Models.box(0.06, 0.7, 0.06), "#5c3a26", Vector3(x, 0.35, z))
+			for sx in [-1, 1]:
+				Models.part(n, Models.cyl(0.18, 0.18, 0.05, 10), "#3e6fb5", Vector3(sx * 0.75, 0.42, 0))
+				Models.part(n, Models.cyl(0.03, 0.03, 0.42, 4), "#5c3a26", Vector3(sx * 0.75, 0.21, 0))
 		"sardunya":
 			for i in 4:
 				var p := Vector3(-0.75 + i * 0.5, 0, 0)

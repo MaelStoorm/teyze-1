@@ -50,13 +50,13 @@ const PANTRY := {
 
 ## Altın günü teyzeleri. likes: sevdiği ikram, hint: yanlışta söylediği ipucu.
 const TEYZELER := [
-	{"name": "Filiz Teyze", "scarf": "#3e8fb0", "cardigan": "#c96a43", "likes": "cay",
+	{"name": "Filiz Teyze", "scarf": "#3e8fb0", "cardigan": "#c96a43", "skirt": "#5c3a26", "hair": "#c9c4bd", "glasses": false, "likes": "cay",
 		"hint": "Ben demli bir şey içmeden konuşamam evladım."},
-	{"name": "Miyase Teyze", "scarf": "#e8b33a", "cardigan": "#5b6fb5", "likes": "borek",
+	{"name": "Miyase Teyze", "scarf": "#e8b33a", "cardigan": "#5b6fb5", "skirt": "#3f6a4a", "hair": "#6b4a35", "glasses": false, "likes": "borek",
 		"hint": "Tatlı değil, tuzlu ve hamurlu bir şey severim ben."},
-	{"name": "Hülya Teyze", "scarf": "#8e5bb5", "cardigan": "#d6577a", "likes": "kurabiye",
+	{"name": "Hülya Teyze", "scarf": "#8e5bb5", "cardigan": "#d6577a", "skirt": "#3e4f7a", "hair": "#a0452e", "glasses": true, "likes": "kurabiye",
 		"hint": "Ah, tatlı bir şey olsa ne iyi olurdu."},
-	{"name": "Nermin Hanım", "scarf": "#4f8a5b", "cardigan": "#8a5a3b", "likes": "simit",
+	{"name": "Nermin Hanım", "scarf": "#4f8a5b", "cardigan": "#8a5a3b", "skirt": "#5b6fb5", "hair": "#e8e4dc", "glasses": false, "likes": "simit",
 		"hint": "Susamlı, çıtır bir şey olsun yavrum."},
 ]
 const IKRAM := ["cay", "borek", "kurabiye", "simit"]
@@ -126,6 +126,14 @@ static func _shuffle(arr: Array, rng: RandomNumberGenerator) -> void:
 		var tmp = arr[i]
 		arr[i] = arr[j]
 		arr[j] = tmp
+
+
+## "2 domates, 1 simit ve 3 yumurta" gibi alışveriş listesi metni.
+static func want_text(want: Dictionary) -> String:
+	var parts := []
+	for k in want:
+		parts.append("%d %s" % [want[k], MARKET[k]])
+	return _join(parts)
 
 
 static func _join(parts: Array) -> String:

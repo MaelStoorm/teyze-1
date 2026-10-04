@@ -5,7 +5,7 @@ extends View3D
 var _pivot := Node3D.new()
 
 
-func _init(model: Node3D, size_px := Vector2(64, 64), distance := 4.5) -> void:
+func _init(model: Node3D, size_px := Vector2(64, 64), distance := 4.5, target_y := 0.7) -> void:
 	super()
 	custom_minimum_size = size_px
 	mouse_filter = MOUSE_FILTER_IGNORE
@@ -27,7 +27,14 @@ func _init(model: Node3D, size_px := Vector2(64, 64), distance := 4.5) -> void:
 	var cam := Camera3D.new()
 	cam.fov = 35
 	vp.add_child(cam)
-	cam.look_at_from_position(Vector3(0, distance * 0.7, distance), Vector3(0, 0.7, 0))
+	cam.look_at_from_position(Vector3(0, distance * 0.7, distance), Vector3(0, target_y, 0))
+
+
+## Önizlemedeki modeli değiştirir (dönüş açısı korunur).
+func set_model(model: Node3D) -> void:
+	for c in _pivot.get_children():
+		c.queue_free()
+	_pivot.add_child(model)
 
 
 func _process(delta: float) -> void:

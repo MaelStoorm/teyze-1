@@ -6,7 +6,8 @@ var _model: Node3D
 var _t := 0.0
 
 
-func _init(size_px := Vector2(96, 110), full_body := false, scarf := "#d6577a", cardigan := "#4f8a5b") -> void:
+## look: Models.teyze() görünüşü (boşsa Fatma Teyze).
+func _init(size_px := Vector2(96, 110), full_body := false, look := {}) -> void:
 	super()
 	custom_minimum_size = size_px
 	mouse_filter = MOUSE_FILTER_IGNORE
@@ -25,7 +26,7 @@ func _init(size_px := Vector2(96, 110), full_body := false, scarf := "#d6577a", 
 	env.environment.ambient_light_color = Color("e8eeff")
 	env.environment.ambient_light_energy = 0.6
 	vp.add_child(env)
-	_model = Models.teyze(scarf, cardigan)
+	_model = Models.person(look)
 	vp.add_child(_model)
 	var cam := Camera3D.new()
 	cam.fov = 30
@@ -38,10 +39,10 @@ func _init(size_px := Vector2(96, 110), full_body := false, scarf := "#d6577a", 
 
 
 ## Portredeki teyzeyi başka renklerle (başka bir teyzeyle) değiştirir.
-func set_look(scarf: String, cardigan: String, skirt := "#7a4e8a") -> void:
+func set_look(look: Dictionary) -> void:
 	var rot := _model.rotation
 	_model.queue_free()
-	_model = Models.teyze(scarf, cardigan, skirt)
+	_model = Models.person(look)
 	_model.rotation = rot
 	viewport.add_child(_model)
 

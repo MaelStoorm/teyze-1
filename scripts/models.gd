@@ -68,19 +68,50 @@ static func capsule(r: float, h: float) -> CapsuleMesh:
 
 
 # --- karakterler ---------------------------------------------------------------
+# Mii tarzı: iri yuvarlak baş, büyük parlak gözler, kaş, gülümseme, al yanaklar.
 
-static func _face(n: Node3D, y: float, r: float, glasses := false) -> void:
+const SKIN := "#f6cfa5"
+## Fatma Teyze'nin görünüşü; diğer teyzeler kendi sözlüklerini verir.
+const FATMA := {"scarf": "#d6577a", "cardigan": "#4f8a5b", "skirt": "#7a4e8a", "hair": "#d8d2ca", "glasses": true}
+
+
+## Kürenin yüzeyindeki z (baş merkezine göre x ve dy için).
+static func _surf(r: float, x: float, dy: float) -> float:
+	return sqrt(maxf(0.0, r * r - x * x - dy * dy))
+
+
+## Yüz: göz (beyaz + bebek + parıltı), kaş, burun, gülümseme, yanak, kulak.
+static func face(n: Node3D, y: float, r: float, opts := {}) -> void:
+	var skin: String = opts.get("skin", SKIN)
+	var brow: String = opts.get("brow", "#5c3a26")
+	var eye: String = opts.get("eye", "#2b1d14")
 	for sx in [-1, 1]:
-		part(n, ball(r * 0.11, 8), "#2b1d14", Vector3(sx * r * 0.36, y, r * 0.9))
-		part(n, ball(r * 0.16, 8), "#f2a0a0", Vector3(sx * r * 0.5, y - r * 0.3, r * 0.8))
-		if glasses:
+		var ex: float = sx * r * 0.33
+		var ey := r * 0.04
+		part(n, ball(r * 0.15, 12), "#ffffff", Vector3(ex, y + ey, _surf(r, ex, ey) - r * 0.03), Vector3.ZERO, Vector3(0.85, 1.2, 0.4))
+		part(n, ball(r * 0.1, 10), eye, Vector3(ex, y + ey - r * 0.01, _surf(r, ex, ey) + r * 0.0), Vector3.ZERO, Vector3(0.9, 1.15, 0.45))
+		part(n, ball(r * 0.03, 6), "#ffffff", Vector3(ex + r * 0.035, y + ey + r * 0.05, _surf(r, ex, ey) + r * 0.04))
+		var by := r * 0.3
+		part(n, box(r * 0.24, r * 0.055, r * 0.06), brow, Vector3(ex, y + by, _surf(r, ex, by) - r * 0.01), Vector3(0, 0, sx * -8))
+		var cx: float = sx * r * 0.55
+		var cy := -r * 0.2
+		part(n, ball(r * 0.12, 8), "#f5a5a0", Vector3(cx, y + cy, _surf(r, cx, cy) - r * 0.06), Vector3.ZERO, Vector3(1, 0.6, 0.35))
+		part(n, ball(r * 0.15, 8), skin, Vector3(sx * r * 0.96, y, 0), Vector3.ZERO, Vector3(0.5, 1, 0.8))
+		if opts.get("glasses", false):
 			var t := TorusMesh.new()
-			t.inner_radius = r * 0.17
-			t.outer_radius = r * 0.23
-			t.rings = 12
+			t.inner_radius = r * 0.19
+			t.outer_radius = r * 0.24
+			t.rings = 16
 			t.ring_segments = 6
-			part(n, t, "#3b2a1e", Vector3(sx * r * 0.36, y, r * 0.95), Vector3(90, 0, 0))
-	part(n, ball(r * 0.12, 8), "#e0a46a", Vector3(0, y - r * 0.16, r * 0.98))
+			part(n, t, "#6b4a35", Vector3(ex, y + ey, _surf(r, ex, ey) + r * 0.05), Vector3(90, 0, 0))
+	if opts.get("glasses", false):
+		part(n, box(r * 0.2, r * 0.04, r * 0.04), "#6b4a35", Vector3(0, y + r * 0.06, r * 1.02))
+	part(n, ball(r * 0.08, 8), "#eab48c", Vector3(0, y - r * 0.1, _surf(r, 0, -r * 0.1) + r * 0.01), Vector3.ZERO, Vector3(1, 0.85, 0.9))
+	for i in 7:  # gülümseme: kenarları yukarı kalkan nokta dizisi
+		var a := lerpf(-0.75, 0.75, i / 6.0)
+		var mx := sin(a) * r * 0.2
+		var my := -r * 0.33 + (1.0 - cos(a)) * r * 0.22
+		part(n, ball(r * 0.032, 6), "#9a3f3f", Vector3(mx, y + my, _surf(r, mx, my) + r * 0.0))
 
 
 ## Hareket eden uzuvlar için boş bir döndürme noktası (omuz, kalça).
@@ -94,53 +125,66 @@ static func pivot(parent: Node3D, name: String, pos: Vector3) -> Node3D:
 
 ## Karakterlerin ortak iskeleti: Body (gövde, baş) ve LegL/LegR, ArmL/ArmR
 ## döndürme noktaları. Walker bu isimlerle yürüme animasyonu yapar.
-static func teyze(scarf := "#d6577a", cardigan := "#4f8a5b", skirt := "#7a4e8a") -> Node3D:
+## look: scarf, cardigan, skirt, hair, glasses (eksikler Fatma Teyze'den).
+static func teyze(look := {}) -> Node3D:
+	var l := FATMA.duplicate()
+	l.merge(look, true)
+	var scarf: String = l["scarf"]
+	var cardigan: String = l["cardigan"]
 	var n := Node3D.new()
 	n.name = "Teyze"
 	for side in [["LegL", -1], ["LegR", 1]]:
-		var leg := pivot(n, side[0], Vector3(side[1] * 0.14, 0.3, 0))
-		part(leg, ball(0.12, 8), "#3b2a1e", Vector3(0, -0.24, 0.06), Vector3.ZERO, Vector3(1, 0.7, 1.3))
+		var leg := pivot(n, side[0], Vector3(side[1] * 0.13, 0.28, 0))
+		part(leg, cyl(0.05, 0.05, 0.2, 8), SKIN, Vector3(0, -0.12, 0))
+		part(leg, ball(0.1, 8), "#4a2f22", Vector3(0, -0.22, 0.05), Vector3.ZERO, Vector3(1, 0.65, 1.4))
 	var body := pivot(n, "Body", Vector3.ZERO)
-	part(body, cyl(0.27, 0.4, 0.55), skirt, Vector3(0, 0.33, 0))  # etek
-	for i in 8:  # eteğin çiçekleri
-		var a := TAU * i / 8.0
-		part(body, ball(0.035, 6), "#f4efe6", Vector3(sin(a) * 0.36, 0.25, cos(a) * 0.36))
-	part(body, cyl(0.22, 0.28, 0.42), cardigan, Vector3(0, 0.8, 0))  # hırka
+	part(body, cyl(0.24, 0.38, 0.5), l["skirt"], Vector3(0, 0.38, 0))  # etek
+	for i in 10:  # eteğin çiçekleri
+		var a := TAU * i / 10.0
+		part(body, ball(0.03, 6), "#fff4dc", Vector3(sin(a) * 0.33, 0.3, cos(a) * 0.33))
+	part(body, ball(0.27, 14), cardigan, Vector3(0, 0.78, 0), Vector3.ZERO, Vector3(1, 0.95, 0.85))  # hırka
+	for i in 3:  # düğmeler
+		part(body, ball(0.022, 6), "#f4efe6", Vector3(0, 0.88 - i * 0.1, 0.235))
 	for side in [["ArmL", -1], ["ArmR", 1]]:
 		var sx: int = side[1]
-		var arm := pivot(body, side[0], Vector3(sx * 0.27, 0.98, 0.02))
-		part(arm, capsule(0.08, 0.4), cardigan, Vector3(sx * 0.04, -0.2, 0.02), Vector3(0, 0, sx * 12))
-		part(arm, ball(0.075, 8), "#f1c27d", Vector3(sx * 0.08, -0.42, 0.06))
-	part(body, ball(0.32, 16), "#f1c27d", Vector3(0, 1.3, 0))  # baş
-	_face(body, 1.3, 0.32, true)
-	# yazma (başörtüsü) ve puantiyeleri
-	part(body, ball(0.35, 16, true), scarf, Vector3(0, 1.36, -0.02))
-	part(body, cyl(0.3, 0.34, 0.3), scarf, Vector3(0, 1.22, -0.1), Vector3(-12, 0, 0))
-	for i in 7:
-		var a := lerpf(-1.2, 1.2, i / 6.0)
-		part(body, ball(0.035, 6), "#fff4dc", Vector3(sin(a) * 0.3, 1.52, cos(a) * 0.17 - 0.02))
-	part(body, prism(0.16, 0.14, 0.06), scarf, Vector3(0, 1.02, 0.2), Vector3(180, 0, 0))
+		var arm := pivot(body, side[0], Vector3(sx * 0.24, 0.92, 0.0))
+		part(arm, capsule(0.075, 0.36), cardigan, Vector3(sx * 0.04, -0.17, 0.02), Vector3(0, 0, sx * 14))
+		part(arm, ball(0.07, 8), SKIN, Vector3(sx * 0.08, -0.37, 0.05))
+	var hy := 1.32
+	var r := 0.36
+	part(body, ball(r, 20), SKIN, Vector3(0, hy, 0))  # baş
+	face(body, hy, r, {"glasses": l["glasses"], "brow": "#8a7a6a"})
+	# yazmanın önünden görünen saç perçemi
+	part(body, ball(r * 0.98, 16, true), l["hair"], Vector3(0, hy + r * 0.22, r * 0.08), Vector3(-8, 0, 0), Vector3(1.02, 0.55, 1.0))
+	# yazma: başın üstünü ve arkasını sarar, yüz açıkta kalır
+	part(body, ball(r * 1.1, 18, true), scarf, Vector3(0, hy + r * 0.12, -r * 0.1), Vector3(-28, 0, 0))
+	part(body, cyl(r * 0.85, r * 1.05, r * 0.9, 16), scarf, Vector3(0, hy - r * 0.35, -r * 0.35), Vector3(-10, 0, 0))
+	for sx in [-1, 1]:  # yanlardan inen kenarlar
+		part(body, capsule(r * 0.2, r * 1.2), scarf, Vector3(sx * r * 0.9, hy - r * 0.3, -r * 0.2), Vector3(0, 0, sx * -10))
+	for i in 9:  # oya gibi puantiyeler
+		var a := lerpf(-1.3, 1.3, i / 8.0)
+		part(body, ball(0.028, 6), "#fff4dc", Vector3(sin(a) * r * 1.02, hy + r * 0.5 + cos(a) * r * 0.25, cos(a) * r * 0.55))
+	part(body, ball(0.06, 8), scarf, Vector3(0, hy - r * 1.02, r * 0.45))  # çenenin altındaki düğüm
+	part(body, prism(0.14, 0.14, 0.05), scarf, Vector3(0, hy - r * 1.22, r * 0.42), Vector3(180, 0, 0))
 	return n
 
 
-static func player() -> Node3D:
-	var n := Node3D.new()
-	n.name = "Oyuncu"
-	for side in [["LegL", -1], ["LegR", 1]]:
-		var leg := pivot(n, side[0], Vector3(side[1] * 0.11, 0.46, 0))
-		part(leg, capsule(0.09, 0.45), "#2c3e50", Vector3(0, -0.22, 0))
-		part(leg, ball(0.09, 8), "#5c3a26", Vector3(0, -0.43, 0.05), Vector3.ZERO, Vector3(1, 0.7, 1.4))
-	var body := pivot(n, "Body", Vector3.ZERO)
-	part(body, cyl(0.2, 0.24, 0.45), "#3d6fb6", Vector3(0, 0.7, 0))
-	for side in [["ArmL", -1], ["ArmR", 1]]:
-		var sx: int = side[1]
-		var arm := pivot(body, side[0], Vector3(sx * 0.25, 0.88, 0))
-		part(arm, capsule(0.07, 0.38), "#3d6fb6", Vector3(sx * 0.03, -0.18, 0), Vector3(0, 0, sx * 10))
-		part(arm, ball(0.07, 8), "#f1c27d", Vector3(sx * 0.06, -0.38, 0))
-	part(body, ball(0.3, 16), "#f1c27d", Vector3(0, 1.2, 0))
-	_face(body, 1.2, 0.3)
-	part(body, ball(0.32, 16, true), "#3b2a1e", Vector3(0, 1.27, -0.05), Vector3(-15, 0, 0))
-	return n
+## Herhangi bir karakter: gender alanı varsa esnaf/erkek (Props.person),
+## animal "cat" ise kedi, yoksa teyze.
+static func person(look := {}) -> Node3D:
+	if look.get("animal", "") == "cat":
+		var c := Animals.cat()
+		c.scale = Vector3.ONE * 2.4
+		c.position.z = -0.4
+		return c
+	if look.has("gender"):
+		return Props.person(look)
+	return teyze(look)
+
+
+## Oyuncunun karakteri; görünüşü karakter oluşturma ekranından gelir.
+static func player(look := {}) -> Node3D:
+	return Avatar.build(look)
 
 
 static func cat() -> Node3D:

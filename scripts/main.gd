@@ -11,6 +11,7 @@ const MINIGAMES := {
 const SHOP := preload("res://scripts/minigames/shop.gd")
 const SETTINGS := preload("res://scripts/minigames/settings.gd")
 const KOMSULAR := preload("res://scripts/minigames/komsular.gd")
+const KARAKTER := preload("res://scripts/minigames/karakter.gd")
 const TYPE_NAMES := {"pazar": "Pazar", "haber": "Komşuya Haber", "kedi": "Kayıp Kedi", "yemek": "Yemek", "altin": "Altın Günü"}
 
 var world: Mahalle3D
@@ -35,6 +36,11 @@ var dialog_buttons: HBoxContainer
 var game: Minigame
 var busy := false
 var overlay: VBoxContainer
+## Dünyada yürüyerek yapılan iş (pazar, çay, gözlük). Boşsa iş yok.
+## kind, giver, info, want/got, pickup/carrying/targets/served, found
+var task := {}
+var task_panel: PanelContainer
+var task_label: Label
 
 
 func _ready() -> void:
@@ -43,6 +49,7 @@ func _ready() -> void:
 	_build_world()
 	overlay = UI.page(self, 10)
 	_build_hud()
+	_build_task_panel()
 	overlay.add_child(UI.spacer())
 	bottom_bar = HBoxContainer.new()
 	bottom_bar.mouse_filter = MOUSE_FILTER_IGNORE
@@ -75,21 +82,44 @@ func _ready() -> void:
 	GameState.leveled_up.connect(_on_level_up)
 	Sfx.set_music(GameState.settings["music"])
 	_refresh()
-	if not GameState.settings["tutorial"]:
-		_tutorial(0)
-	else:
-		_show_daily_gift()
 	var shots := _arg("--shots")
 	if shots != "":
 		_screenshot_tour(shots)
+		return
+	var splash := Splash.new()
+	add_child(splash)
+	splash.done.connect(_after_splash)
+
+
+func _after_splash() -> void:
+	if GameState.avatar.is_empty():
+		_open_avatar(true)
+	elif not GameState.settings["tutorial"]:
+		_tutorial(0)
+	else:
+		_show_daily_gift()
+
+
+## Karakter oluşturma ekranı. first: ilk açılışta, bitince rehber başlar.
+func _open_avatar(first := false) -> void:
+	if game != null:
+		_quit_game()
+	_close_dialog()
+	game = KARAKTER.new().setup({})
+	game.finished.connect(func(_ok):
+		_quit_game()
+		world.set_player_look(GameState.avatar)
+		if first and not GameState.settings["tutorial"]:
+			_tutorial(0))
+	add_child(game)
+	_refresh()
 
 
 # --- mahalle ---------------------------------------------------------------
 
 func _build_world() -> void:
 	world = Mahalle3D.new()
-	world.teyze_tapped.connect(_on_teyze)
-	world.neighbor_tapped.connect(_on_neighbor)
+	world.tapped.connect(_on_tapped)
 	add_child(world)
 
 
@@ -149,10 +179,121 @@ func _refresh() -> void:
 		hud_hearts.add_child(heart)
 	world.refresh_decor()
 	world.refresh_neighbors()
+	world.set_bowl_full(GameState.sutlu_fed_today())
+	world.sutlu_follow = GameState.sutlu_fed_today()
 	friends_button.visible = not GameState.neighbors_unlocked().is_empty()
-	world.bubble.visible = not GameState.is_day_over() and game == null
 	world.visible = game == null
 	bottom_bar.visible = game == null and not dialog.visible
+	_refresh_task()
+
+
+## İşin üstteki kartını ve dünyadaki işaretleri (ünlem, altın ok) günceller.
+func _refresh_task() -> void:
+	var bubbles := []
+	var goals := []
+	if task.is_empty():
+		if not GameState.is_day_over():
+			bubbles.append("fatma")
+		for n in GameState.neighbors_unlocked():
+			if GameState.favor_available(n["id"]):
+				bubbles.append(n["id"])
+		if not GameState.sutlu_fed_today():
+			goals.append("sutlu")
+	else:
+		goals = _task_goals()
+	world.set_marks(bubbles, goals if game == null else [])
+	task_panel.visible = not task.is_empty() and game == null
+	if task.is_empty():
+		return
+	task_label.text = _task_text()
+
+
+func _task_done() -> bool:
+	match task["kind"]:
+		"shop":
+			for k in task["want"]:
+				if task["got"].get(k, 0) < task["want"][k]:
+					return false
+			return true
+		"deliver":
+			return task["served"].size() >= task["targets"].size()
+		"find":
+			return task["found"]
+	return false
+
+
+func _task_goals() -> Array:
+	if _task_done():
+		return [task["giver"]]
+	match task["kind"]:
+		"shop":
+			var g := []
+			for kind in Props.STALLS:
+				for item in Props.STALLS[kind]["items"]:
+					if task["want"].has(item) and task["got"].get(item, 0) < task["want"][item] and not g.has("stall_" + kind):
+						g.append("stall_" + kind)
+			return g
+		"deliver":
+			if not task["carrying"]:
+				return [task["pickup"]]
+			return task["targets"].filter(func(t): return t not in task["served"])
+		"find":
+			return ["gozluk"]
+	return []
+
+
+func _task_text() -> String:
+	var who := Neighbors.name_of(task["giver"])
+	if _task_done():
+		return "Tamam! %s'ye dön." % who
+	match task["kind"]:
+		"shop":
+			var parts := []
+			for k in task["want"]:
+				parts.append("%s %d/%d" % [Errands.MARKET[k], task["got"].get(k, 0), task["want"][k]])
+			return "Pazar listesi: " + ", ".join(parts)
+		"deliver":
+			if not task["carrying"]:
+				return "Kahvehaneye git, Ahmet Amca'dan çayı al."
+			var left: Array = task["targets"].filter(func(t): return t not in task["served"])
+			return "Çay götür: " + ", ".join(left.map(func(t): return Neighbors.name_of(t)))
+		"find":
+			return "%s'nin gözlüğünü mahallede ara." % who
+	return ""
+
+
+func _build_task_panel() -> void:
+	task_panel = PanelContainer.new()
+	task_panel.add_theme_stylebox_override("panel", UI.box(Color("fff4c8"), UI.INK, 3, 8))
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 6)
+	h.add_child(UI.sprite("defter", 30))
+	task_label = UI.label("", 17, UI.INK, true)
+	task_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	task_label.size_flags_horizontal = SIZE_EXPAND_FILL
+	h.add_child(task_label)
+	var x := UI.button("Bırak", _ask_drop_task, 15)
+	x.custom_minimum_size = Vector2(56, 36)
+	x.size_flags_vertical = SIZE_SHRINK_CENTER
+	h.add_child(x)
+	task_panel.add_child(h)
+	task_panel.visible = false
+	overlay.add_child(task_panel)
+
+
+func _ask_drop_task() -> void:
+	if busy:
+		return
+	_say("Bu işi şimdilik bırakalım mı? Sonra yine gelip alabilirsin.",
+		[["Bırak", func(): _drop_task(); _close_dialog()], ["Devam", _close_dialog]], task["giver"])
+
+
+func _drop_task() -> void:
+	if task.get("kind", "") == "find":
+		world.remove_glasses()
+	task = {}
+	world.set_carry("")
+	_refresh()
 
 
 # --- teyze konuşma kutusu -------------------------------------------------------
@@ -186,17 +327,27 @@ func _build_dialog() -> void:
 	overlay.add_child(dialog)
 
 
-## buttons: [[metin, Callable], ...]. who: konuşan komşunun id'si, boşsa Fatma Teyze.
+## buttons: [[metin, Callable], ...]. who: konuşanın id'si ("fatma", komşu,
+## "stall_manav", "sutlu"); boşsa Fatma Teyze.
 func _say(text: String, buttons: Array, who := "") -> void:
+	if who == "":
+		who = "fatma"
 	if who != dialog_who:
 		dialog_who = who
-		if who == "":
+		if who == "fatma":
 			dialog_name.text = Errands.TEYZE
-			dialog_face.set_look("#d6577a", "#4f8a5b")
+			dialog_face.set_look({})
+		elif who.begins_with("stall_"):
+			var st: Dictionary = Props.STALLS[who.substr(6)]
+			dialog_name.text = st["seller"]
+			dialog_face.set_look(st["look"])
+		elif who == "sutlu":
+			dialog_name.text = "Sütlü"
+			dialog_face.set_look({"animal": "cat"})
 		else:
 			var n := Neighbors.get_neighbor(who)
 			dialog_name.text = n["name"]
-			dialog_face.set_look(n["scarf"], n["cardigan"], n["skirt"])
+			dialog_face.set_look(n)
 	dialog_text.text = text
 	for c in dialog_buttons.get_children():
 		c.queue_free()
@@ -216,38 +367,201 @@ func _close_dialog() -> void:
 
 # --- akış ----------------------------------------------------------------------
 
-func _on_teyze() -> void:
+## Dünyada bir şeye dokunuldu: oraya yürü, sonra ne olduğuna göre konuş.
+func _on_tapped(id: String) -> void:
 	if busy or game != null or tutorial_step >= 0:
 		return
 	busy = true
 	Sfx.play("tap")
-	await world.walk_to_teyze()
+	await world.walk_to_target(id)
 	busy = false
+	_interact(id)
+
+
+## Yürüdükten sonraki etkileşim (testler doğrudan bunu çağırır).
+func _interact(id: String) -> void:
+	if not task.is_empty() and _task_step(id):
+		return
+	if id == "fatma":
+		_talk_fatma()
+	elif id.begins_with("stall_"):
+		var st: Dictionary = Props.STALLS[id.substr(6)]
+		_say("Hoş geldin! Taze taze %s var. Teyzen bir şey isterse gel, ayırırım." % Errands._join(st["items"].map(func(k): return Errands.MARKET[k])),
+			[["Kolay gelsin", _close_dialog]], id)
+	elif id == "sutlu":
+		_talk_sutlu()
+	elif id == "gozluk":
+		pass
+	else:
+		_talk_neighbor(id)
+
+
+func _talk_fatma() -> void:
+	if not task.is_empty():
+		_say("Önce elindeki işi bitir evladım, ben buradayım.", [["Tamam teyzecim", _close_dialog]])
+		return
 	if GameState.is_day_over():
-		_say("Bugünlük bu kadar evladım. Yarın yine gel, sana kurabiye ayırdım.",
+		_say("Bugünlük bu kadar %s. Yarın yine gel, sana kurabiye ayırdım." % GameState.call_name(),
 			[["Yarın görüşürüz teyzecim", _close_dialog]])
 		return
 	var errand := GameState.current_errand()
 	var info := Errands.build(errand)
+	if errand["type"] == "pazar":
+		info["kind"] = "shop"
+		info["intro"] = "Evladım, pazara gidiver de bana %s al. Pazar yeri yolun sonunda, tezgahlardan alırsın." % Errands.want_text(info["want"])
+		_say(info["intro"], [["Hemen teyzecim", _start_task.bind("fatma", info)], ["Sonra", _close_dialog]])
+		return
 	_say(info["intro"], [["Hemen teyzecim", _start_game.bind(errand["type"], info)], ["Sonra", _close_dialog]])
 
 
-func _on_neighbor(id: String) -> void:
-	if busy or game != null or tutorial_step >= 0:
-		return
-	busy = true
-	Sfx.play("tap")
-	await world.walk_to_neighbor(id)
-	busy = false
+func _talk_neighbor(id: String) -> void:
 	var n := Neighbors.get_neighbor(id)
-	if not GameState.favor_available(id):
+	if not GameState.favor_available(id) or not task.is_empty():
 		var line: String = n["chat"][randi() % n["chat"].size()]
-		_say(line, [["Hadi kolay gelsin teyzem", _close_dialog]], id)
+		_say(line, [["Hadi kolay gelsin", _close_dialog]], id)
 		return
-	var info := Neighbors.favor(id, GameState.favor_seed(id), GameState.level())
+	var others := ["fatma"]
+	for o in GameState.neighbors_unlocked():
+		others.append(o["id"])
+	var info := Neighbors.favor(id, GameState.favor_seed(id), GameState.level(), others)
 	if GameState.hearts(id) == 0:
 		info["intro"] = "Sen Fatma'nın yardımcısısın değil mi? Ben %s. %s" % [n["name"], info["intro"]]
-	_say(info["intro"], [["Olur teyzem", _start_game.bind(n["type"], info)], ["Sonra", _close_dialog]], id)
+	var go := _start_game.bind("yemek", info) if info["kind"] == "game" else _start_task.bind(id, info)
+	_say(info["intro"], [["Olur", go], ["Sonra", _close_dialog]], id)
+
+
+## Dünyada yürüyerek yapılacak bir işi başlatır.
+func _start_task(giver: String, info: Dictionary) -> void:
+	task = {"kind": info["kind"], "giver": giver, "info": info}
+	match info["kind"]:
+		"shop":
+			task["want"] = info["want"]
+			task["got"] = {}
+			world.set_carry("file")
+		"deliver":
+			task["pickup"] = info["pickup"] if info["pickup"] != "" else giver
+			task["targets"] = info["targets"]
+			task["served"] = []
+			task["carrying"] = info["pickup"] == ""
+			if task["carrying"]:
+				world.set_carry("cay")
+		"find":
+			task["found"] = false
+			world.spawn_glasses(info["spot"])
+	Sfx.play("whoosh")
+	_close_dialog()
+
+
+## İş sürerken birine dokunulunca işin adımı. Bir şey yaptıysa true döner.
+func _task_step(id: String) -> bool:
+	if id == task["giver"] and _task_done():
+		_finish_task()
+		return true
+	match task["kind"]:
+		"shop":
+			if id.begins_with("stall_"):
+				_stall_dialog(id)
+				return true
+		"deliver":
+			if not task["carrying"] and id == task["pickup"]:
+				task["carrying"] = true
+				world.set_carry("cay")
+				Sfx.play("good")
+				_say("Al bakalım, tavşan kanı çay! Dökme sakın.", [["Tamam amca", _close_dialog]], id)
+				return true
+			if task["carrying"] and id in task["targets"] and id not in task["served"]:
+				task["served"].append(id)
+				Sfx.play("coin")
+				if id == task["giver"]:
+					_finish_task()
+					return true
+				var left: int = task["targets"].size() - task["served"].size()
+				var line := "Oh, tam zamanında! Çay gibisi yok." if left > 0 else "Çok makbule geçti. Ahmet'e selamımı söyle!"
+				if left == 0:
+					world.set_carry("")
+				_say(line, [["Afiyet olsun", _close_dialog]], id)
+				return true
+		"find":
+			if id == "gozluk":
+				task["found"] = true
+				world.remove_glasses()
+				world.set_carry("gozluk")
+				Sfx.play("good")
+				_refresh()
+				return true
+	return false
+
+
+## Tezgahtan alışveriş: listedekileri al.
+func _stall_dialog(id: String, note := "") -> void:
+	var st: Dictionary = Props.STALLS[id.substr(6)]
+	var buttons := []
+	for item in st["items"]:
+		buttons.append([Errands.MARKET[item].capitalize(), _buy_item.bind(id, item)])
+	buttons.append(["Tamam", _close_dialog])
+	var text := note if note != "" else "Buyur, ne alırsın? Listene bak istersen."
+	_say(text, buttons, id)
+	_refresh_task()
+
+
+func _buy_item(id: String, item: String) -> void:
+	var want: int = task["want"].get(item, 0)
+	var got: int = task["got"].get(item, 0)
+	if want == 0:
+		Sfx.play("bad")
+		_stall_dialog(id, "Bu listende yok galiba, teyzen kızmasın.")
+		return
+	if got >= want:
+		_stall_dialog(id, "Bundan yeterince aldın, %d tane yeter." % want)
+		return
+	task["got"][item] = got + 1
+	Sfx.play("coin")
+	if _task_done():
+		_stall_dialog(id, "Liste tamam! Haydi, %s'ye götür." % Neighbors.name_of(task["giver"]))
+	else:
+		_stall_dialog(id, "%s poşete! Başka?" % Errands.MARKET[item].capitalize())
+
+
+## İş bitti: ödül, teşekkür.
+func _finish_task() -> void:
+	var giver: String = task["giver"]
+	var info: Dictionary = task["info"]
+	if task["kind"] == "find":
+		world.remove_glasses()
+	task = {}
+	world.set_carry("")
+	level_note = ""
+	if giver == "fatma":
+		var reward := GameState.complete_errand("pazar")
+		_say("%s Al bakalım, %d kurabiye senin!%s" % [Errands.build({"type": "pazar"})["thanks"], reward, level_note],
+			[["Afiyet olsun bana", _close_dialog]])
+	else:
+		_finish_favor(info)
+
+
+func _talk_sutlu() -> void:
+	if GameState.sutlu_fed_today():
+		_say("Mırrr... Sütlü karnı tok, mutlu mutlu peşinden geliyor. Başını okşadın, gözlerini kıstı.",
+			[["Pisi pisi", _close_dialog]], "sutlu")
+		Sfx.play("meow", -4.0, 1.15)
+		return
+	_say("Miyav! Sütlü sana bakıyor, kabı boş. Mama verelim mi?",
+		[["Mama ver", _feed_sutlu], ["Sonra", _close_dialog]], "sutlu")
+	Sfx.play("meow", -3.0)
+
+
+func _feed_sutlu() -> void:
+	var love := GameState.feed_sutlu()
+	world.feed_sutlu()
+	Sfx.play("meow", -2.0, 1.2)
+	var text := "Sütlü mamasını afiyetle yedi! Artık bugün peşinden ayrılmaz."
+	match love:
+		3:
+			text += " Üç gündür besliyorsun, seni çok sevdi. Sana mırlıyor!"
+		7:
+			text += " Bir haftadır besliyorsun, artık Sütlü senin kedin!"
+	text += "\n\nSütlü'nün sevgisi: %d gün." % love
+	_say(text, [["Afiyet olsun Sütlü", _close_dialog]], "sutlu")
 
 
 func _start_game(type: String, info: Dictionary) -> void:
@@ -296,6 +610,7 @@ func _open_settings() -> void:
 	_close_dialog()
 	game = SETTINGS.new().setup({})
 	game.show_tutorial.connect(func(): _quit_game(); _tutorial(0))
+	game.edit_avatar.connect(func(): _open_avatar())
 	add_child(game)
 	game.content.add_child(UI.spacer())
 	var back := UI.button("Mahalleye dön", _quit_game, 18)
@@ -403,7 +718,7 @@ func _show_daily_gift() -> bool:
 		return false
 	var gift := GameState.daily_gift
 	GameState.daily_gift = 0
-	var text := "Günaydın evladım! Bugün de geldin, al sana %d kurabiye." % gift
+	var text := "Günaydın %s! Bugün de geldin, al sana %d kurabiye." % [GameState.call_name(), gift]
 	if GameState.streak > 1:
 		text += " %d gündür hiç aksatmadın, maşallah!" % GameState.streak
 	text += " Yeni günde yeni işler var."
@@ -427,24 +742,58 @@ func _screenshot_tour(dir: String) -> void:
 	GameState.kurabiye = 47
 	GameState.decor = {"kedievi": true, "semaver": true, "cesme": true, "cardak": true, "gul": true, "fener": true}
 	GameState.new_day(false)
+	var splash := Splash.new()
+	add_child(splash)
+	await get_tree().create_timer(0.9).timeout
+	await _shot(dir, "00_acilis")
+	splash.close()
+	_open_avatar()
+	await _shot(dir, "01_karakter")
+	game.call("_pick", "gender", "erkek", true)
+	game.call("_pick", "hair", 1, false)
+	await _shot(dir, "01_karakter_erkek")
+	_quit_game()
+	GameState.avatar = {"gender": "kiz", "hair": 0, "hair_color": 1, "top": 1, "name": "Ayşe"}
+	world.set_player_look(GameState.avatar)
 	_tutorial(3)
 	await _shot(dir, "1_rehber")
 	_tutorial(TUTORIAL.size())
 	await _shot(dir, "0_mahalle")
-	_on_teyze()
+	_on_tapped("fatma")
 	await get_tree().create_timer(3.0).timeout
 	await _shot(dir, "2_gorev")
 	_close_dialog()
+	_start_task("fatma", {"kind": "shop", "want": {"domates": 2, "simit": 1}})
+	_tp(Vector3(-1.5, 0, 14.0))
+	await _shot(dir, "2_pazar")
+	_interact("stall_manav")
+	_buy_item("stall_manav", "domates")
+	await _shot(dir, "2_tezgah")
+	_close_dialog()
+	_drop_task()
+	_tp(Vector3(-8.0, 0, 3.6))
+	await _shot(dir, "2_kahvehane")
+	_tp(Vector3(8.5, 0, 9.8))
+	await _shot(dir, "2_ciftlik")
+	_tp(Vector3(-7.0, 0, 10.5))
+	await _shot(dir, "2_golet")
+	_tp(Vector3(6.0, 0, -3.0))
+	await _shot(dir, "2_evler")
+	_tp(Vector3(-0.5, 0, -3.0))
+	_interact("sutlu")
+	await _shot(dir, "2_sutlu")
+	_feed_sutlu()
+	await _shot(dir, "2_sutlu_mama")
+	_close_dialog()
 	GameState.friendship = {"filiz": 5, "miyase": 2}
-	_on_neighbor("filiz")
+	_on_tapped("filiz")
 	await get_tree().create_timer(3.0).timeout
 	await _shot(dir, "2_komsu")
+	_close_dialog()
 	_finish_favor(Neighbors.favor("filiz", 1, 4))
 	await _shot(dir, "2_komsu_hediye")
 	_close_dialog()
-	await get_tree().create_timer(1.0).timeout
-	await _shot(dir, "2_kusevi")
-	for type in ["pazar", "haber", "kedi", "yemek", "altin"]:
+	for type in ["haber", "kedi", "yemek", "altin"]:
 		var info := Errands.build({"type": type, "seed": 7, "level": 5})
 		_start_game(type, info)
 		await _shot(dir, "3_" + type)
@@ -478,6 +827,13 @@ func _screenshot_tour(dir: String) -> void:
 	await _shot(dir, "6_buyuk_yazi")
 	_quit_game()
 	get_tree().quit()
+
+
+## Tur için oyuncuyu bir yere ışınlar, kamera da hemen gelir.
+func _tp(pos: Vector3) -> void:
+	world.player_walker.stop()
+	world.player.position = pos
+	world._cam_focus = Vector3(clampf(pos.x, -9.5, 9.5), 0, clampf(pos.z - 0.8, -2.8, 14.0))
 
 
 func _shot(dir: String, name: String) -> void:

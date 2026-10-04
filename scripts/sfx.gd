@@ -1,7 +1,8 @@
 extends Node
 ## Ses efektleri ve müzik. Sesler tools/make_sounds.py ile üretilir.
 
-const NAMES := ["tap", "good", "bad", "win", "levelup", "coin", "stir", "meow", "whoosh"]
+const NAMES := ["tap", "good", "bad", "win", "levelup", "coin", "stir", "meow", "whoosh",
+		"step", "moo", "cluck", "quack", "woof"]
 const POOL := 6
 
 var _streams := {}

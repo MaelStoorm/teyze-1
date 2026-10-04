@@ -18,15 +18,19 @@ var _turn_to := 0.0
 var _char: Node3D
 var _body: Node3D
 var _legs: Array[Node3D] = []
+var _leg_signs: Array[float] = []
+## Adım sıklığı çarpanı (kısa bacaklı hayvanlarda daha sık adım).
+var step_rate := 1.0
 var _arms: Array[Node3D] = []
 
 
 func _ready() -> void:
 	_char = get_parent()
 	_body = _char.get_node_or_null("Body")
-	for n in ["LegL", "LegR"]:
+	for n in ["LegL", "LegR", "LegL2", "LegR2"]:
 		if _char.has_node(n):
 			_legs.append(_char.get_node(n))
+			_leg_signs.append(1.0 if n.begins_with("LegL") else -1.0)
 	if _body:
 		for n in ["ArmL", "ArmR"]:
 			if _body.has_node(n):
@@ -84,10 +88,10 @@ func _process(delta: float) -> void:
 
 func _animate(delta: float, walking_now: bool) -> void:
 	if walking_now:
-		_phase += delta * speed * 4.2
+		_phase += delta * speed * 4.2 * step_rate
 		var sw := sin(_phase)
 		for i in _legs.size():
-			_legs[i].rotation.x = lerpf(_legs[i].rotation.x, sw * 0.55 * (1 if i == 0 else -1), 0.5)
+			_legs[i].rotation.x = lerpf(_legs[i].rotation.x, sw * 0.55 * _leg_signs[i], 0.5)
 		for i in _arms.size():
 			_arms[i].rotation.x = lerpf(_arms[i].rotation.x, -sw * 0.6 * (1 if i == 0 else -1), 0.5)
 		if _body:
