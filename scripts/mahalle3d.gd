@@ -9,7 +9,7 @@ signal tapped(id: String)
 const TEYZE_SPOT := Vector3(-2.6, 0, -3.7)
 const PLAYER_START := Vector3(0.4, 0, 0.5)
 const CAM_OFFSET := Vector3(0, 13.0, 9.6)
-const BOUNDS := Rect2(-13.5, -5.3, 27.0, 21.0)
+const BOUNDS := Rect2(-19.5, -5.3, 39.0, 30.0)
 const STALL_POS := {"manav": Vector3(-4.2, 0, 12.2), "firin": Vector3(0.0, 0, 12.2), "sarkuteri": Vector3(4.2, 0, 12.2)}
 const KAHVE_POS := Vector3(-8.5, 0, -0.6)
 const FARM := Rect2(6.5, 1.5, 6.5, 7.0)
@@ -47,6 +47,8 @@ var _glasses: Node3D
 var _ducks: Array[Node3D] = []
 var sutlu: Node3D
 var sutlu_follow := false
+## Uçan böcekler: {"node", "center", "r", "speed", "phase", "kind"}
+var _flyers: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -89,7 +91,7 @@ func _build() -> void:
 	root.add_child(camera)
 
 	# zemin, yollar, arnavut kaldırımı
-	Models.part(root, Models.box(44, 0.2, 52), "#6aa84f", Vector3(0, -0.1, 4))
+	Models.part(root, Models.box(64, 0.2, 66), "#6aa84f", Vector3(0, -0.1, 10))
 	_cobbles(root, Rect2(-14, -4.6, 28, 1.8))
 	_cobbles(root, Rect2(-0.8, -2.8, 1.6, 13.4))
 	_cobbles(root, Rect2(-6.6, 10.6, 13.2, 5.0))
@@ -166,6 +168,8 @@ func _build() -> void:
 		_ducks.append(d)
 		targets["ordek%d" % i] = {"node": d, "h": 0.4, "animal": "quack"}
 
+	_build_outskirts(root)
+
 	# Fatma Teyze
 	teyze = Models.teyze()
 	teyze.position = TEYZE_SPOT
@@ -198,6 +202,144 @@ func _build() -> void:
 	refresh_decor()
 	refresh_neighbors()
 	_update_blockers()
+
+
+## Mahallenin çevresi: dere ve köprü, çiçek bahçesi ve arı kovanları,
+## elma bahçesi, ayçiçeği tarlası; arılar ve kelebekler.
+func _build_outskirts(root: Node3D) -> void:
+	# güneyde dere, üstünde köprü, köprüden çiçek bahçesine yol
+	Models.part(root, Models.box(64, 0.06, 1.6), "#5fb3d6", Vector3(0, 0.0, 17.0))
+	for x in range(-19, 20, 2):
+		if absf(x) > 1.5:
+			Models.part(root, Models.ball(0.22, 6), "#a39b8b", Vector3(x + randf_range(-0.4, 0.4), 0.02, 16.15), Vector3.ZERO, Vector3(1, 0.4, 1))
+			Models.part(root, Models.ball(0.22, 6), "#b8b0a0", Vector3(x + randf_range(-0.4, 0.4), 0.02, 17.85), Vector3.ZERO, Vector3(1, 0.4, 1))
+	_place(root, Props.bridge(1.8, 2.6), Vector3(0, 0, 17.0))
+	_blockers.append(Rect2(-20.0, 16.2, 19.1, 1.6))
+	_blockers.append(Rect2(0.9, 16.2, 19.1, 1.6))
+	_cobbles(root, Rect2(-0.8, 15.6, 1.6, 0.6))
+	_cobbles(root, Rect2(-0.8, 18.3, 1.6, 6.0))
+	var gs := Props.label3d("ÇİÇEK BAHÇESİ", 90, Color("8e2f6a"))
+	gs.position = Vector3(0, 2.6, 18.6)
+	root.add_child(gs)
+
+	# çiçek tarhları
+	var beds := [Rect2(-6.6, 19.2, 3.4, 1.6), Rect2(-6.6, 22.0, 3.4, 1.6), Rect2(3.2, 19.2, 3.4, 1.6), Rect2(3.2, 22.0, 3.4, 1.6), Rect2(-2.6, 24.6, 5.2, 1.2)]
+	var stems := []
+	var heads := []
+	var head_colors := []
+	var palette := [Color("e04a4a"), Color("f7cf4a"), Color("f2a0c0"), Color("f4efe6"), Color("b89be8"), Color("f5a93a")]
+	for bi in beds.size():
+		var b: Rect2 = beds[bi]
+		_solid(Props.flower_bed(b.size), Vector3(b.get_center().x, 0, b.get_center().y), 0, b)
+		var cols := int(b.size.x / 0.32)
+		var rows := int(b.size.y / 0.32)
+		for cx in cols:
+			for cz in rows:
+				var p := Vector3(b.position.x + 0.2 + cx * 0.32, 0.2, b.position.y + 0.2 + cz * 0.32)
+				p += Vector3(randf_range(-0.06, 0.06), 0, randf_range(-0.06, 0.06))
+				var h := randf_range(0.3, 0.45)
+				stems.append(Transform3D(Basis(), p + Vector3(0, h / 2, 0)))
+				heads.append(Transform3D(Basis().scaled(Vector3(1, 0.8, 1)), p + Vector3(0, h, 0)))
+				head_colors.append(palette[(bi * 2 + cz) % palette.size()])
+	_multimesh(root, Models.cyl(0.02, 0.02, 1.0, 5), stems, [], "#4f8a3a", Vector3(1, 0.38, 1))
+	_multimesh(root, Models.ball(0.09, 8), heads, head_colors)
+	_solid(Models.bench(), Vector3(-1.9, 0, 21.2), 90, Rect2(-2.2, 20.5, 0.6, 1.4))
+	_solid(Models.bench(), Vector3(1.9, 0, 21.2), -90, Rect2(1.6, 20.5, 0.6, 1.4))
+	_solid(Models.tree(), Vector3(-9.5, 0, 21.5), 30, Rect2(-10.2, 20.8, 1.4, 1.4))
+	_solid(Models.tree(), Vector3(13.5, 0, 22.5), 0, Rect2(12.8, 21.8, 1.4, 1.4))
+	# arı kovanları
+	for p in [Vector3(8.6, 0, 20.4), Vector3(10.0, 0, 21.2), Vector3(9.0, 0, 22.6)]:
+		_solid(Props.hive(), p, randf_range(-30, 30), Rect2(p.x - 0.5, p.z - 0.5, 1.0, 1.0))
+	var ks := Props.label3d("Arıcı Rıza'nın kovanları", 56)
+	ks.position = Vector3(9.3, 2.0, 21.4)
+	root.add_child(ks)
+
+	# doğuda elma bahçesi
+	for x in [15.2, 17.8]:
+		for z in [-1.0, 2.5, 6.0, 9.5, 13.0]:
+			var p := Vector3(x, 0, z + (0.8 if x > 16 else 0.0))
+			_solid(Props.apple_tree(), p, randf() * 360, Rect2(p.x - 0.7, p.z - 0.7, 1.4, 1.4))
+	# batıda ayçiçeği tarlası
+	var sf_stems := []
+	var sf_heads := []
+	var sf_mid := []
+	for row in 5:
+		for k in 9:
+			var p := Vector3(-18.6 + row * 1.0, 0, 0.5 + k * 1.05 + (0.5 if row % 2 else 0.0))
+			var h := randf_range(1.3, 1.7)
+			sf_stems.append(Transform3D(Basis(), p + Vector3(0, h / 2, 0)).scaled_local(Vector3(1, h, 1)))
+			var face := Basis(Vector3.RIGHT, deg_to_rad(70))  # kafalar güneye, kameraya bakar
+			sf_heads.append(Transform3D(face, p + Vector3(0, h, 0.05)))
+			sf_mid.append(Transform3D(face, p + Vector3(0, h, 0.09)))
+	_blockers.append(Rect2(-19.0, 0.2, 5.2, 10.4))
+	_multimesh(root, Models.cyl(0.04, 0.05, 1.0, 6), sf_stems, [], "#4f8a3a")
+	_multimesh(root, Models.cyl(0.32, 0.32, 0.06, 14), sf_heads, [], "#f7c62a")
+	_multimesh(root, Models.cyl(0.16, 0.16, 0.07, 12), sf_mid, [], "#6b4a25")
+
+	# arılar kovan ve tarhların çevresinde, kelebekler çiçeklerin üstünde
+	var bee_spots := [Vector3(9.2, 0, 21.4), Vector3(9.2, 0, 21.4), Vector3(9.2, 0, 21.4), Vector3(4.9, 0, 20.0),
+		Vector3(4.9, 0, 22.8), Vector3(-4.9, 0, 20.0), Vector3(-4.9, 0, 22.8), Vector3(-16.5, 0, 5.0), Vector3(-16.5, 0, 3.0)]
+	for c in bee_spots:
+		var b := Props.bee()
+		b.scale = Vector3.ONE * 1.8
+		root.add_child(b)
+		_flyers.append({"node": b, "center": c, "r": randf_range(0.6, 1.4), "speed": randf_range(1.2, 2.2), "phase": randf() * TAU, "kind": "bee"})
+	var bf_colors := ["#f5a93a", "#5aa0d8", "#f2a0c0", "#f4efe6", "#b89be8", "#f7cf4a"]
+	var bf_spots := [Vector3(-3.0, 0, 3.5), Vector3(5.0, 0, 9.0), Vector3(-5.0, 0, 21.0), Vector3(5.0, 0, 21.0), Vector3(0.0, 0, 25.0), Vector3(-14.0, 0, 9.0), Vector3(11.0, 0, -3.0), Vector3(-7.0, 0, 13.5)]
+	for i in bf_spots.size():
+		var b := Props.butterfly(bf_colors[i % bf_colors.size()])
+		b.scale = Vector3.ONE * 2.2
+		root.add_child(b)
+		_flyers.append({"node": b, "center": bf_spots[i], "r": randf_range(1.2, 2.4), "speed": randf_range(0.35, 0.6), "phase": randf() * TAU, "kind": "butterfly"})
+
+
+## Aynı şeklin çok kopyası tek çizimde. colors boşsa hepsi color rengi.
+func _multimesh(root: Node3D, mesh: Mesh, xforms: Array, colors: Array, color := "#ffffff", scale := Vector3.ONE) -> void:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = not colors.is_empty()
+	var mat := StandardMaterial3D.new()
+	mat.roughness = 0.75
+	if colors.is_empty():
+		mat.albedo_color = Color(color)
+	else:
+		mat.vertex_color_use_as_albedo = true
+	mesh.material = mat
+	mm.mesh = mesh
+	mm.instance_count = xforms.size()
+	for i in xforms.size():
+		var t: Transform3D = xforms[i]
+		if scale != Vector3.ONE:
+			t = t.scaled_local(scale)
+		mm.set_instance_transform(i, t)
+		if not colors.is_empty():
+			mm.set_instance_color(i, colors[i])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	root.add_child(mmi)
+
+
+## Arılar sekiz çizerek vızıldar, kelebekler süzülüp kanat çırpar.
+func _fly() -> void:
+	for f in _flyers:
+		var n: Node3D = f["node"]
+		var a: float = _t * f["speed"] + f["phase"]
+		var r: float = f["r"]
+		var c: Vector3 = f["center"]
+		var prev := n.position
+		if f["kind"] == "bee":
+			n.position = c + Vector3(sin(a) * r, 1.0 + sin(a * 2.3) * 0.25, sin(a * 2.0) * r * 0.6)
+			var flap := sin(_t * 60.0) * 0.6
+			n.get_node("WingL").rotation.z = flap
+			n.get_node("WingR").rotation.z = -flap
+		else:
+			n.position = c + Vector3(cos(a) * r, 1.3 + sin(a * 3.0) * 0.4, sin(a * 1.4) * r * 0.8)
+			var flap := sin(_t * 14.0 + f["phase"]) * 0.9
+			n.get_node("WingL").rotation.z = flap
+			n.get_node("WingR").rotation.z = -flap
+		var d := n.position - prev
+		if d.length() > 0.0001:
+			n.rotation.y = atan2(d.x, d.z)
 
 
 func _make_bubble(color: Color) -> Label3D:
@@ -414,9 +556,11 @@ func _flowers(root: Node3D) -> void:
 	m.material = mat
 	mm.mesh = m
 	var spots := []
-	for i in 400:
-		var p := Vector3(randf_range(-14, 14), 0.05, randf_range(-2.6, 16))
-		if absf(p.x) < 1.0 or (p.z > 10.4 and absf(p.x) < 6.8) or FARM.grow(0.3).has_point(Vector2(p.x, p.z)):
+	for i in 1100:
+		var p := Vector3(randf_range(-19.5, 19.5), 0.05, randf_range(-2.6, 26))
+		if absf(p.x) < 1.0 or (p.z > 10.4 and p.z < 15.8 and absf(p.x) < 6.8) or FARM.grow(0.3).has_point(Vector2(p.x, p.z)):
+			continue
+		if (p.z > 16.0 and p.z < 18.0) or (p.x < -13.8 and p.z > 0.0 and p.z < 11.0):
 			continue
 		if Vector2(p.x - POND_POS.x, p.z - POND_POS.z).length() < 3.0:
 			continue
@@ -453,13 +597,14 @@ func _process(delta: float) -> void:
 		_goal_marks[i].position = g["node"].position + Vector3(0, g["h"] + 0.9 + sin(_t * 5.0) * 0.15, 0)
 		_goal_marks[i].rotation.y = _t * 2.0
 	# kamera oyuncuyu yumuşakça takip eder
-	var want := Vector3(clampf(player.position.x, -9.5, 9.5), 0, clampf(player.position.z - 0.8, -2.8, 14.0))
+	var want := Vector3(clampf(player.position.x, -15.5, 15.5), 0, clampf(player.position.z - 0.8, -2.8, 22.5))
 	_cam_focus = _cam_focus.lerp(want, minf(1.0, delta * 2.5))
 	camera.look_at_from_position(_cam_focus + CAM_OFFSET, _cam_focus)
 	if _marker.visible:
 		_marker.scale = _marker.scale.lerp(Vector3.ONE * 0.4, delta * 3.0)
 	_wander(delta)
 	_swim()
+	_fly()
 
 
 func _wander(delta: float) -> void:

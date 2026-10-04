@@ -777,6 +777,14 @@ func _screenshot_tour(dir: String) -> void:
 	await _shot(dir, "2_ciftlik")
 	_tp(Vector3(-7.0, 0, 10.5))
 	await _shot(dir, "2_golet")
+	_tp(Vector3(0.0, 0, 21.0))
+	await _shot(dir, "2_bahce")
+	_tp(Vector3(7.5, 0, 22.5))
+	await _shot(dir, "2_kovan")
+	_tp(Vector3(-13.0, 0, 7.0))
+	await _shot(dir, "2_aycicegi")
+	_tp(Vector3(14.0, 0, 6.0))
+	await _shot(dir, "2_elma")
 	_tp(Vector3(6.0, 0, -3.0))
 	await _shot(dir, "2_evler")
 	_tp(Vector3(-0.5, 0, -3.0))
@@ -833,7 +841,7 @@ func _screenshot_tour(dir: String) -> void:
 func _tp(pos: Vector3) -> void:
 	world.player_walker.stop()
 	world.player.position = pos
-	world._cam_focus = Vector3(clampf(pos.x, -9.5, 9.5), 0, clampf(pos.z - 0.8, -2.8, 14.0))
+	world._cam_focus = Vector3(clampf(pos.x, -15.5, 15.5), 0, clampf(pos.z - 0.8, -2.8, 22.5))
 
 
 func _shot(dir: String, name: String) -> void:

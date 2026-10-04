@@ -232,3 +232,67 @@ static func glasses() -> Node3D:
 	m.albedo_color.a = 0.5
 	glow.material_override = m
 	return n
+
+
+## Saman kovan (geleneksel arı kovanı): üst üste daralan halkalar.
+static func hive() -> Node3D:
+	var n := Node3D.new()
+	Models.part(n, Models.box(0.9, 0.5, 0.9), "#8a5a3b", Vector3(0, 0.25, 0))  # sehpa
+	for i in 5:
+		var r := 0.42 - i * 0.07
+		Models.part(n, Models.cyl(r, r + 0.03, 0.16, 16), "#e2b552" if i % 2 == 0 else "#d4a040", Vector3(0, 0.58 + i * 0.15, 0))
+	Models.part(n, Models.ball(0.14, 10), "#e2b552", Vector3(0, 1.28, 0))
+	Models.part(n, Models.cyl(0.07, 0.07, 0.04, 10), "#3b2a1e", Vector3(0, 0.6, 0.42), Vector3(90, 0, 0))  # giriş
+	return n
+
+
+static func bee() -> Node3D:
+	var n := Node3D.new()
+	Models.part(n, Models.ball(0.07, 10), "#f2c23a", Vector3.ZERO, Vector3.ZERO, Vector3(0.9, 0.9, 1.3))
+	for z in [-0.03, 0.03]:
+		Models.part(n, Models.cyl(0.066, 0.066, 0.018, 10), "#2b2420", Vector3(0, 0, z), Vector3(90, 0, 0))
+	Models.part(n, Models.ball(0.04, 8), "#2b2420", Vector3(0, 0.01, 0.09))
+	for sx in [-1, 1]:
+		var w := Models.part(n, Models.ball(0.06, 8), "#ffffff", Vector3(sx * 0.06, 0.07, -0.01), Vector3.ZERO, Vector3(1.2, 0.2, 0.7))
+		w.name = "WingL" if sx < 0 else "WingR"
+	return n
+
+
+static func butterfly(color: String) -> Node3D:
+	var n := Node3D.new()
+	Models.part(n, Models.capsule(0.015, 0.14), "#3b2a1e", Vector3.ZERO, Vector3(90, 0, 0))
+	for sx in [-1, 1]:
+		var hinge := Models.pivot(n, "WingL" if sx < 0 else "WingR", Vector3.ZERO)
+		Models.part(hinge, Models.ball(0.08, 8), color, Vector3(sx * 0.08, 0, 0.02), Vector3.ZERO, Vector3(1.0, 0.12, 1.2))
+		Models.part(hinge, Models.ball(0.05, 8), color, Vector3(sx * 0.06, 0, -0.07), Vector3.ZERO, Vector3(1.0, 0.12, 1.0))
+	return n
+
+
+static func apple_tree() -> Node3D:
+	var n := Models.tree()
+	for i in 9:
+		var a := TAU * i / 9.0
+		Models.part(n, Models.ball(0.09, 8), "#d8352a", Vector3(cos(a) * 0.62, 1.35 + (i % 3) * 0.2, sin(a) * 0.62))
+	return n
+
+
+## Ahşap köprü (dere üstünde).
+static func bridge(width := 1.8, length := 2.6) -> Node3D:
+	var n := Node3D.new()
+	for i in 9:
+		var z := -length / 2 + i * length / 8.0
+		Models.part(n, Models.box(width, 0.08, length / 9.0 - 0.03), "#b07a4a" if i % 2 else "#a86f48", Vector3(0, 0.12 + sin(PI * i / 8.0) * 0.18, z))
+	for sx in [-1, 1]:
+		for i in 4:
+			var z := -length / 2 + i * length / 3.0
+			Models.part(n, Models.box(0.08, 0.6, 0.08), "#8a5a3b", Vector3(sx * width / 2, 0.4 + sin(PI * i / 3.0) * 0.18, z))
+		Models.part(n, Models.box(0.07, 0.07, length), "#8a5a3b", Vector3(sx * width / 2, 0.75, 0))
+	return n
+
+
+## Çiçek tarhı: ahşap kenarlı, toprak ve üstünde çiçekler (çiçekleri çağıran ekler).
+static func flower_bed(size: Vector2) -> Node3D:
+	var n := Node3D.new()
+	Models.part(n, Models.box(size.x, 0.18, size.y), "#8a5a3b", Vector3(0, 0.09, 0))
+	Models.part(n, Models.box(size.x - 0.16, 0.06, size.y - 0.16), "#5c3a26", Vector3(0, 0.17, 0))
+	return n
