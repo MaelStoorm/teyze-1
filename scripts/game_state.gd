@@ -17,6 +17,8 @@ var day := 1
 var xp := 0
 ## Satın alınan perkler: id -> seviye.
 var perks := {}
+## Mahalleye eklenen süsler: id -> true.
+var decor := {}
 ## Bugünün görevleri, sırayla. Her biri {"type": String, "seed": int}.
 var errands: Array = []
 var done_count := 0
@@ -138,6 +140,17 @@ func buy_perk(id: String) -> bool:
 	return true
 
 
+func buy_decor(id: String) -> bool:
+	var d: Dictionary = Decor.get_decor(id)
+	if d.is_empty() or decor.has(id) or kurabiye < d["price"]:
+		return false
+	kurabiye -= d["price"]
+	decor[id] = true
+	save_game()
+	changed.emit()
+	return true
+
+
 # --- gün akışı ---------------------------------------------------------------
 
 func current_errand() -> Dictionary:
@@ -206,6 +219,7 @@ func save_game() -> void:
 	cfg.set_value("oyuncu", "gun", day)
 	cfg.set_value("oyuncu", "xp", xp)
 	cfg.set_value("oyuncu", "perkler", perks)
+	cfg.set_value("oyuncu", "susler", decor)
 	cfg.set_value("gun", "gorevler", errands)
 	cfg.set_value("gun", "biten", done_count)
 	cfg.set_value("gun", "yeni", fresh_unlocks)
@@ -223,6 +237,7 @@ func load_game() -> void:
 	day = cfg.get_value("oyuncu", "gun", 1)
 	xp = cfg.get_value("oyuncu", "xp", 0)
 	perks = cfg.get_value("oyuncu", "perkler", {})
+	decor = cfg.get_value("oyuncu", "susler", {})
 	errands = cfg.get_value("gun", "gorevler", [])
 	done_count = cfg.get_value("gun", "biten", 0)
 	fresh_unlocks = cfg.get_value("gun", "yeni", [])
@@ -236,6 +251,7 @@ func reset() -> void:
 	day = 1
 	xp = 0
 	perks = {}
+	decor = {}
 	fresh_unlocks = []
 	streak = 1
 	daily_gift = 0
