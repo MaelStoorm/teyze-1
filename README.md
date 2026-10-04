@@ -1,49 +1,54 @@
-# Teyze
+# Fatma Teyze
 
-Metroda, otobüste, iki durak arasında oynanan kısa görevli bir mahalle oyunu.
-Fatma Teyze her gün sana küçük işler verir; her iş 1-3 dakikalık bir mini oyundur.
+**MaelStoorm Studios**
 
-## Şu an oyunda olanlar (prototip)
+Metroda, otobüste, iki durak arasında oynanan sıcacık bir mahalle oyunu. Fatma Teyze ve komşuları sana her gün küçük işler verir. Mahallede dolaş, pazardan alışveriş yap, komşulara yardım et, kurabiye kazan.
 
-- **Mahalle (low-poly 3D):** Cumbalı teyze evi, komşu evi, pazar tezgahı, bank, ağaçlar. Teyzeye dokun, görevi al.
-- **Pazar:** Teyzenin listesindeki ürünleri tezgahtan seç.
-- **Komşuya Haber:** Teyzenin sözünü aklında tut, komşuya sırasıyla anlat.
-- **Kayıp Kedi:** Pamuk saklandı; "miyav" ipuçlarıyla bul.
-- **Yemek (Sv 2):** Tarifin malzemelerini tencereye koy, sonra dokunarak karıştır. Menemen, Mercimek Çorbası, Sütlaç.
-- **Altın Günü (Sv 3):** Filiz, Miyase ve Hülya Teyze'ye (Sv 5'te Nermin Hanım da) uğra, sevdikleri ikramı ver, çeyrek altınlarını topla.
-- **Seviyeler:** Her görev 10 tecrübe. Seviye atladıkça yeni görevler açılır, görevler biraz zorlaşır, Sv 4'te günde 4 görev olur.
-- **Dükkan:** Kurabiyelerle kalıcı perkler: Pamuk'un Zili, Not Defteri, Pazar Filesi, Bakır Kepçe, Altın Kesesi, Teyzenin Duası, Dolu Takvim.
-- Her görev 3 kurabiye (+ perkler). İlerleme telefona kaydedilir, internet gerekmez.
-- Süre baskısı yok, yanlışta ceza yok, büyük yazı ve butonlar.
+![Oyundan görüntüler](docs/ekran-0.8.png)
+
+## Oyunda neler var
+
+- **Yaşayan mahalle (3D):** Dört teyze evi, Ahmet Amca'nın kahvehanesi, pazar yeri, çiftlik, gölet, dere, çiçek bahçesi, arı kovanları, elma bahçesi, ayçiçeği tarlası.
+- **Yürümek:** Ekrana dokun ya da sol alttaki kolu kullan.
+- **Karakterini yarat:** Kız ya da erkek, saç, ten, kıyafet ve renkler.
+- **Fatma Teyze'nin işleri:** Pazar alışverişi, Komşuya Haber, Kayıp Kedi, Yemek, Altın Günü.
+- **Komşular:** Filiz, Miyase, Hülya Teyze ve Ahmet Amca. Ricalarını yap, dostluk kalbi kazan, hediyeler al.
+- **Sütlü:** Sarı-beyaz mahalle kedisi. Besle, peşinden gelsin.
+- **Bostan:** Ek, ertesi gün topla, komşulara hediye et.
+- **Gün ve hava:** Telefonun saatine göre sabah, akşam, gece; bazı günler yağmur.
+- **Tavla ve çay:** Ahmet Amca'yla tavla, Filiz Teyze'yle çay demleme.
+- **Evim:** Kurabiyelerinle kilim, sedir, semaver, guguklu saat al, evini döşe.
+- **Dükkan:** İşleri kolaylaştıran hediyeler ve mahalle süsleri.
+- Süre baskısı yok, yanlışta ceza yok. Büyük yazı ve düğmeler, ayarlanabilir yazı boyutu. İnternet gerekmez.
 
 ## Çalıştırma
 
 1. [Godot 4.3](https://godotengine.org/download) indir.
 2. Godot'ta "Import" ile bu klasördeki `project.godot` dosyasını aç.
-3. F5 ile çalıştır. Ekran telefon gibi dikeydir (360x640).
+3. F5 ile çalıştır. Oyun yatay ekrandır (640x360 tasarım boyutu).
 
 ## Geliştirme
 
-- 3D modeller `scripts/models.gd` içinde Godot'nun hazır şekilleriyle kod ile kurulur; dış model dosyası yok.
-- Görev ekranlarındaki ikonlar `tools/make_icons.py` ile çizilir: `python3 tools/make_icons.py` (Pillow gerekir).
-- Altı günü otomatik oynayan test: `godot --headless -s tools/flow_test.gd`
-- Ekran görüntüleri: `godot -- --shots=/klasor/yolu`
-- Yeni görev eklemek: `scripts/errands.gd` içine metni, `scripts/minigames/` içine mini oyunu ekle.
-
-## Sıradaki adımlar
-
-- Android dışa aktarma (APK) ayarları
-- Ses ve müzik
-- Kurabiyelerle teyzenin evini ve mahalleyi güzelleştirme
-- Gerçek parayla satın alma (Google Play hesabı onaylandıktan sonra)
-- Daha fazla görev türü
+- 3D modeller `scripts/models.gd`, `props.gd`, `animals.gd`, `avatar.gd`, `ev_esyalar.gd` içinde Godot'nun hazır şekilleriyle kodla kurulur. Telefonda hız için `scripts/bake.gd` parçaları birleştirir.
+- İkonlar `tools/make_icons.py`, uygulama simgesi `tools/make_app_icon.py`, logo `tools/make_logo.py`, sesler `tools/make_sounds.py` ile üretilir (Pillow/numpy gerekir).
+- Hayvan sesleri gerçek CC0 kayıtlardır: `assets/sounds/HAYVAN_SESLERI_LISANS.txt`.
+- Testler:
+  - Günleri baştan sona oynayan test: `godot --headless -s tools/flow_test.gd`
+  - Rastgele dokunuş testi: `xvfb-run godot --path . -s tools/monkey.gd -- --taps=1500`
+  - Çizim yükü ölçümü: `xvfb-run godot --path . -s tools/perf.gd`
+  - Ekran görüntüleri: `godot -- --shots=/klasor/yolu` (büyük yazı için `--text=1.4`)
 
 ## Android APK
 
-Test için imzalı APK:
-
-1. `godot --headless --export-release "Android" build/teyze-unsigned.apk`
-   (Godot export şablonları 4.3 ve Editor Settings'te bir Android SDK yolu gerekir.)
-2. `java -jar uber-apk-signer.jar -a build/teyze-unsigned.apk --ks <keystore> --ksAlias teyze`
+1. `godot --headless --export-release "Android" build/teyze.apk`
+   (Godot 4.3 export şablonları ve Editor Settings'te bir Android SDK yolu gerekir.)
+2. `java -jar uber-apk-signer.jar -a build/teyze.apk --ks <keystore> --ksAlias teyze`
 
 Play Store sürümü için ayrı bir yükleme anahtarı oluşturulacak.
+
+## Sıradaki adımlar
+
+- Gerçek gün takibi ve seri ödülleri
+- Play Store hazırlığı ve uygulama içi satın alma (Google Play hesabı onaylandıktan sonra)
+
+© 2026 MaelStoorm Studios
