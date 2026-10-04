@@ -26,6 +26,8 @@ var fresh_unlocks: Array = []
 var errands_date := ""
 ## Kaç gündür üst üste gelindi.
 var streak := 0
+## Oyuncu ayarları: yazı boyutu çarpanı, ses, müzik, rehber görüldü mü.
+var settings := {"text": 1.0, "sound": true, "music": true, "tutorial": false}
 ## Henüz gösterilmemiş günlük hediye (kurabiye). Ana ekran gösterip sıfırlar.
 var daily_gift := 0
 
@@ -38,6 +40,11 @@ func _ready() -> void:
 		streak = 1
 		save_game()
 	check_new_day()
+
+
+func set_setting(key: String, value) -> void:
+	settings[key] = value
+	save_game()
 
 
 # --- takvim -----------------------------------------------------------------
@@ -204,6 +211,7 @@ func save_game() -> void:
 	cfg.set_value("gun", "yeni", fresh_unlocks)
 	cfg.set_value("gun", "tarih", errands_date)
 	cfg.set_value("oyuncu", "seri", streak)
+	cfg.set_value("ayarlar", "hepsi", settings)
 	cfg.save(SAVE_PATH)
 
 
@@ -220,6 +228,7 @@ func load_game() -> void:
 	fresh_unlocks = cfg.get_value("gun", "yeni", [])
 	errands_date = cfg.get_value("gun", "tarih", "")
 	streak = cfg.get_value("oyuncu", "seri", 0)
+	settings.merge(cfg.get_value("ayarlar", "hepsi", {}), true)
 
 
 func reset() -> void:

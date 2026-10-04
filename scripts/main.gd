@@ -9,6 +9,7 @@ const MINIGAMES := {
 	"altin": preload("res://scripts/minigames/altin.gd"),
 }
 const SHOP := preload("res://scripts/minigames/shop.gd")
+const SETTINGS := preload("res://scripts/minigames/settings.gd")
 const TYPE_NAMES := {"pazar": "Pazar", "haber": "Komşuya Haber", "kedi": "Kayıp Kedi", "yemek": "Yemek", "altin": "Altın Günü"}
 
 var world: Mahalle3D
@@ -17,6 +18,10 @@ var hud_day: Label
 var hud_level: Label
 var hud_xp: ProgressBar
 var shop_button: Button
+var settings_button: Button
+var bottom_bar: HBoxContainer
+var hud_panel: PanelContainer
+var tutorial_step := -1
 var level_note := ""
 var hud_hearts: HBoxContainer
 var dialog: PanelContainer
@@ -28,24 +33,38 @@ var overlay: VBoxContainer
 
 
 func _ready() -> void:
+	UI.text_scale = GameState.settings["text"]
 	theme = UI.make_theme()
 	_build_world()
 	overlay = UI.page(self, 10)
 	_build_hud()
 	overlay.add_child(UI.spacer())
+	bottom_bar = HBoxContainer.new()
+	bottom_bar.mouse_filter = MOUSE_FILTER_IGNORE
+	settings_button = UI.button("", _open_settings, 20)
+	settings_button.icon = UI.tex("ayar")
+	settings_button.add_theme_constant_override("icon_max_width", 34)
+	settings_button.custom_minimum_size = Vector2(60, 56)
+	bottom_bar.add_child(settings_button)
+	var gap := Control.new()
+	gap.size_flags_horizontal = SIZE_EXPAND_FILL
+	gap.mouse_filter = MOUSE_FILTER_IGNORE
+	bottom_bar.add_child(gap)
 	shop_button = UI.button("Dükkan", _open_shop, 20)
 	shop_button.icon = UI.tex("file")
 	shop_button.add_theme_constant_override("icon_max_width", 34)
 	shop_button.custom_minimum_size = Vector2(150, 56)
-	shop_button.size_flags_horizontal = SIZE_SHRINK_END
-	overlay.add_child(shop_button)
+	bottom_bar.add_child(shop_button)
+	overlay.add_child(bottom_bar)
 	_build_dialog()
 	GameState.changed.connect(_refresh)
 	GameState.leveled_up.connect(_on_level_up)
-	Sfx.set_music(true)
+	Sfx.set_music(GameState.settings["music"])
 	_refresh()
-	if not _show_daily_gift() and GameState.done_count == 0 and GameState.day == 1:
-		_say("Hoş geldin evladım! Bana bir dokun bakayım, işlerim var.", [["Tamam teyzecim", _close_dialog]])
+	if not GameState.settings["tutorial"]:
+		_tutorial(0)
+	else:
+		_show_daily_gift()
 	var shots := _arg("--shots")
 	if shots != "":
 		_screenshot_tour(shots)
@@ -63,6 +82,7 @@ func _build_world() -> void:
 
 func _build_hud() -> void:
 	var p := PanelContainer.new()
+	hud_panel = p
 	p.add_theme_stylebox_override("panel", UI.box(UI.CREAM, UI.INK, 3, 6))
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 6)
@@ -114,7 +134,7 @@ func _refresh() -> void:
 		hud_hearts.add_child(heart)
 	world.bubble.visible = not GameState.is_day_over() and game == null
 	world.visible = game == null
-	shop_button.visible = game == null and not dialog.visible
+	bottom_bar.visible = game == null and not dialog.visible
 
 
 # --- teyze konuşma kutusu -------------------------------------------------------
@@ -156,7 +176,7 @@ func _say(text: String, buttons: Array) -> void:
 		b.size_flags_horizontal = SIZE_EXPAND_FILL
 		dialog_buttons.add_child(b)
 	dialog.visible = true
-	shop_button.visible = false
+	bottom_bar.visible = false
 
 
 func _close_dialog() -> void:
@@ -167,7 +187,7 @@ func _close_dialog() -> void:
 # --- akış ----------------------------------------------------------------------
 
 func _on_teyze() -> void:
-	if busy or game != null:
+	if busy or game != null or tutorial_step >= 0:
 		return
 	busy = true
 	Sfx.play("tap")
@@ -207,6 +227,56 @@ func _open_shop() -> void:
 	back.size_flags_horizontal = SIZE_SHRINK_BEGIN
 	game.content.add_child(back)
 	_refresh()
+
+
+func _open_settings() -> void:
+	if game != null or busy:
+		return
+	_close_dialog()
+	game = SETTINGS.new().setup({})
+	game.show_tutorial.connect(func(): _quit_game(); _tutorial(0))
+	add_child(game)
+	game.content.add_child(UI.spacer())
+	var back := UI.button("Mahalleye dön", _quit_game, 18)
+	back.custom_minimum_size = Vector2(180, 48)
+	back.size_flags_horizontal = SIZE_SHRINK_BEGIN
+	game.content.add_child(back)
+	_refresh()
+
+
+# --- ilk açılış rehberi ------------------------------------------------------
+
+const TUTORIAL := [
+	["Hoş geldin evladım! Ben Fatma Teyze. Mahallenin bütün işleri bende, sen de bana yardım edeceksin.", ""],
+	["Bana dokununca sana bir iş veririm. Her iş birkaç dakika sürer. Acele yok, istediğin an bırakıp sonra devam edebilirsin.", ""],
+	["İşi bitirince kurabiye kazanırsın. Üstteki kalpler bugünkü işlerin, yıldız da seviyen. Seviye atladıkça yeni işler açılır.", "hud"],
+	["Kurabiyelerinle Dükkan'dan işini kolaylaştıran hediyeler alırsın. Yazıyı büyütmek ya da sesi kısmak için de dişli düğmesine bas.", "bar"],
+	["Her gün uğra, her gün yeni işler ve sana bir hediye olur. Haydi, şimdi bana bir dokun bakalım!", ""],
+]
+
+
+func _tutorial(step: int) -> void:
+	tutorial_step = step
+	if step >= TUTORIAL.size():
+		tutorial_step = -1
+		GameState.set_setting("tutorial", true)
+		GameState.daily_gift = 0
+		_close_dialog()
+		return
+	var last := step == TUTORIAL.size() - 1
+	_say(TUTORIAL[step][0], [["Tamam teyzecim" if last else "Devam", _tutorial.bind(step + 1)]])
+	match TUTORIAL[step][1]:
+		"hud":
+			_pulse(hud_panel)
+		"bar":
+			bottom_bar.visible = true
+			_pulse(bottom_bar)
+
+
+func _pulse(node: Control) -> void:
+	var tw := node.create_tween().set_loops(4)
+	tw.tween_property(node, "modulate", Color(1.25, 1.15, 0.7), 0.35)
+	tw.tween_property(node, "modulate", Color.WHITE, 0.35)
 
 
 func _quit_game() -> void:
@@ -271,7 +341,9 @@ func _screenshot_tour(dir: String) -> void:
 	GameState.xp = 125
 	GameState.kurabiye = 47
 	GameState.new_day(false)
-	_close_dialog()
+	_tutorial(3)
+	await _shot(dir, "1_rehber")
+	_tutorial(TUTORIAL.size())
 	await _shot(dir, "0_mahalle")
 	_on_teyze()
 	await get_tree().create_timer(0.8).timeout
@@ -294,6 +366,13 @@ func _screenshot_tour(dir: String) -> void:
 		_quit_game()
 	_open_shop()
 	await _shot(dir, "4_dukkan")
+	_quit_game()
+	_open_settings()
+	await _shot(dir, "5_ayarlar")
+	_quit_game()
+	UI.text_scale = 1.2
+	_start_game("yemek", Errands.build({"type": "yemek", "seed": 3, "level": 5}))
+	await _shot(dir, "6_buyuk_yazi")
 	_quit_game()
 	get_tree().quit()
 
