@@ -15,6 +15,13 @@ const ALL := [
 		"price": 40, "pos": Vector3(-2.6, 0, 9.4), "rot": 0.0},
 	{"id": "fener", "name": "Bayram Işıkları", "desc": "Sokağın üstüne renkli ampuller. Mahalle bayram yerine döner.",
 		"price": 60, "pos": Vector3(0, 0, -3.7), "rot": 0.0},
+	# Komşuların dostluk hediyeleri: dükkanda satılmaz.
+	{"id": "kusevi", "name": "Filiz'in Kuş Evi", "desc": "Direğin ucunda serçelere küçük bir ev.",
+		"price": 0, "gift": true, "pos": Vector3(5.5, 0, -2.4), "rot": -30.0},
+	{"id": "sardunya", "name": "Miyase'nin Sardunyaları", "desc": "Teneke saksılarda kırmızı sardunyalar.",
+		"price": 0, "gift": true, "pos": Vector3(-5.0, 0, 5.3), "rot": 90.0},
+	{"id": "salincak", "name": "Hülya'nın Salıncağı", "desc": "Mahalle çocukları için ahşap bir salıncak.",
+		"price": 0, "gift": true, "pos": Vector3(2.8, 0, 10.4), "rot": 0.0},
 ]
 
 
@@ -86,4 +93,25 @@ static func build(id: String) -> Node3D:
 					m.emission = Color(colors[i % 5])
 					m.emission_energy_multiplier = 0.8
 					bulb.material_override = m
+		"kusevi":
+			Models.part(n, Models.cyl(0.05, 0.06, 1.8, 6), "#8a5a3b", Vector3(0, 0.9, 0))
+			Models.part(n, Models.box(0.45, 0.4, 0.4), "#e8b33a", Vector3(0, 1.95, 0))
+			Models.part(n, Models.prism(0.6, 0.25, 0.5), "#3e8fb0", Vector3(0, 2.28, 0))
+			Models.part(n, Models.cyl(0.08, 0.08, 0.03, 10), "#3b2a1e", Vector3(0, 1.98, 0.2), Vector3(90, 0, 0))
+			Models.part(n, Models.ball(0.07, 6), "#8a6a4a", Vector3(0.12, 2.45, 0.05))  # serçe
+		"sardunya":
+			for i in 4:
+				var p := Vector3(-0.75 + i * 0.5, 0, 0)
+				Models.part(n, Models.cyl(0.17, 0.15, 0.32, 10), "#c0c6cc", p + Vector3(0, 0.16, 0))
+				Models.part(n, Models.ball(0.2, 6), "#3f8a46", p + Vector3(0, 0.42, 0))
+				for k in 3:
+					Models.part(n, Models.ball(0.07, 6), "#e04a4a", p + Vector3(cos(k * 2.1) * 0.12, 0.55, sin(k * 2.1) * 0.12))
+		"salincak":
+			for x in [-0.8, 0.8]:
+				Models.part(n, Models.box(0.1, 1.9, 0.1), "#8a5a3b", Vector3(x, 0.95, -0.25), Vector3(-8, 0, 0))
+				Models.part(n, Models.box(0.1, 1.9, 0.1), "#8a5a3b", Vector3(x, 0.95, 0.25), Vector3(8, 0, 0))
+			Models.part(n, Models.box(1.8, 0.1, 0.1), "#8a5a3b", Vector3(0, 1.9, 0))
+			for x in [-0.25, 0.25]:
+				Models.part(n, Models.cyl(0.015, 0.015, 1.2, 4), "#3b2a1e", Vector3(x, 1.3, 0))
+			Models.part(n, Models.box(0.65, 0.06, 0.28), "#d6577a", Vector3(0, 0.7, 0))
 	return n

@@ -3,6 +3,7 @@ extends View3D
 ## 3D mahalle: oyuncak maket gibi, kamera hafif yukarıdan bakar.
 
 signal teyze_tapped
+signal neighbor_tapped(id: String)
 
 const TEYZE_SPOT := Vector3(-2.6, 0, -3.7)
 const PLAYER_START := Vector3(0.4, 0, 2.5)
@@ -19,6 +20,10 @@ var teyze_walker: Walker
 var _marker: MeshInstance3D
 var _cam_focus := Vector3(0, 0, -2.2)
 var _talk_after_walk := false
+## Komşular: id -> {"node", "walker", "bubble", "wait"}
+var neighbors := {}
+var _talking := ""
+var _talk_to: Node3D
 
 const CAM_OFFSET := Vector3(0, 18.5, 13.2)
 ## Yürünemeyen yerler (x, z): evler, ağaçlar, tezgah, bank...
@@ -130,6 +135,39 @@ func _build() -> void:
 	bubble.position = TEYZE_SPOT + Vector3(0, 3.0, 0)
 	root.add_child(bubble)
 	refresh_decor()
+	refresh_neighbors()
+
+
+## Açılmış komşuları mahalleye koyar, rica balonlarını günceller.
+func refresh_neighbors() -> void:
+	for n in GameState.neighbors_unlocked():
+		var id: String = n["id"]
+		if not neighbors.has(id):
+			var body := Models.teyze(n["scarf"], n["cardigan"], n["skirt"])
+			body.position = n["home"]
+			body.rotation.y = randf() * TAU
+			body.scale = Vector3.ONE * 1.4
+			_root.add_child(body)
+			var w := Walker.new()
+			w.speed = 1.1  # teyzeler acele etmez
+			body.add_child(w)
+			var b := Label3D.new()
+			b.text = "!"
+			b.font_size = 120
+			b.outline_size = 32
+			b.modulate = Color("2f7fc8")
+			b.pixel_size = 0.006
+			b.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			b.no_depth_test = true
+			_root.add_child(b)
+			neighbors[id] = {"node": body, "walker": w, "bubble": b, "wait": randf_range(0.5, 3.0), "area": n["area"]}
+		neighbors[id]["bubble"].visible = GameState.favor_available(id)
+	_update_blockers()
+
+
+## Bitişte konuşan komşu yeniden dolaşmaya başlar.
+func end_talk() -> void:
+	_talking = ""
 
 
 ## Satın alınmış süsleri mahalleye koyar (yenileri ekler).
@@ -199,6 +237,8 @@ func _update_blockers() -> void:
 			list.append(DECOR_BLOCKERS[id])
 	if player_walker:
 		player_walker.blockers = list
+	for id in neighbors:
+		neighbors[id]["walker"].blockers = list
 
 
 func _process(delta: float) -> void:
@@ -208,8 +248,24 @@ func _process(delta: float) -> void:
 	var want := Vector3(clampf(player.position.x * 0.5, -1.5, 1.5), 0, clampf(-2.2 + (player.position.z - PLAYER_START.z) * 0.5, -3.0, 3.0))
 	_cam_focus = _cam_focus.lerp(want, minf(1.0, delta * 2.5))
 	camera.look_at_from_position(_cam_focus + CAM_OFFSET, _cam_focus)
+	_wander(delta)
 	if _marker.visible:
 		_marker.scale = _marker.scale.lerp(Vector3.ONE * 0.4, delta * 3.0)
+
+
+func _wander(delta: float) -> void:
+	for id in neighbors:
+		var nb: Dictionary = neighbors[id]
+		var node: Node3D = nb["node"]
+		nb["bubble"].position = node.position + Vector3(0, 2.75 + sin(_t * 4.0 + node.position.x) * 0.08, 0)
+		var w: Walker = nb["walker"]
+		if id == _talking or w.moving:
+			continue
+		nb["wait"] -= delta
+		if nb["wait"] <= 0.0:
+			var a: Rect2 = nb["area"]
+			w.walk_to(Vector3(randf_range(a.position.x, a.end.x), 0, randf_range(a.position.y, a.end.y)))
+			nb["wait"] = randf_range(2.5, 6.0)  # varınca biraz soluklanır
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -217,10 +273,22 @@ func _gui_input(event: InputEvent) -> void:
 	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
 		return
 	var vp_pos := to_viewport(event.position)
-	# Teyzenin ekrandaki yerine yakın her dokunuş sayılır (parmak dostu).
-	var p := camera.unproject_position(teyze.global_position + Vector3(0, 1.2, 0))
-	if vp_pos.distance_to(p) < 70 * pixel_scale:
-		teyze_tapped.emit()
+	# Bir teyzenin ekrandaki yerine yakın her dokunuş sayılır (parmak dostu).
+	var best := ""
+	var best_d := 70.0 * pixel_scale
+	var chars := {"": teyze}
+	for id in neighbors:
+		chars[id] = neighbors[id]["node"]
+	for id in chars:
+		var d := vp_pos.distance_to(camera.unproject_position(chars[id].global_position + Vector3(0, 1.2, 0)))
+		if d < best_d:
+			best_d = d
+			best = id
+	if best_d < 70.0 * pixel_scale:
+		if best == "":
+			teyze_tapped.emit()
+		else:
+			neighbor_tapped.emit(best)
 		return
 	var origin := camera.project_ray_origin(vp_pos)
 	var dir := camera.project_ray_normal(vp_pos)
@@ -238,20 +306,33 @@ func _on_player_arrived() -> void:
 	_marker.visible = false
 	if _talk_after_walk:
 		_talk_after_walk = false
-		player_walker.face(teyze.position)
-		teyze_walker.face(player.position)
 
 
 ## Oyuncuyu teyzenin yanına yürütür ve varınca döner.
 func walk_to_teyze() -> void:
-	var spot := TEYZE_SPOT + Vector3(1.2, 0, 0.7)
+	await _walk_to_char(teyze, teyze_walker, TEYZE_SPOT + Vector3(1.2, 0, 0.7))
+
+
+## Oyuncuyu komşunun yanına yürütür; komşu durup bekler.
+func walk_to_neighbor(id: String) -> void:
+	var nb: Dictionary = neighbors[id]
+	var node: Node3D = nb["node"]
+	_talking = id
+	nb["walker"].stop()
+	var dir := player.position - node.position
+	dir.y = 0
+	dir = dir.normalized() if dir.length() > 0.01 else Vector3(1, 0, 0)
+	await _walk_to_char(node, nb["walker"], node.position + dir * 1.3)
+
+
+func _walk_to_char(other: Node3D, other_walker: Walker, spot: Vector3) -> void:
 	_talk_after_walk = true
 	_marker.visible = false
 	if player.position.distance_to(spot) > 0.15:
 		player_walker.walk_to(spot)
 		await player_walker.arrived
-	player_walker.face(teyze.position)
-	teyze_walker.face(player.position)
+	player_walker.face(other.position)
+	other_walker.face(player.position)
 
 
 func reset_player() -> void:

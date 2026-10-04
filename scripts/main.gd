@@ -10,6 +10,7 @@ const MINIGAMES := {
 }
 const SHOP := preload("res://scripts/minigames/shop.gd")
 const SETTINGS := preload("res://scripts/minigames/settings.gd")
+const KOMSULAR := preload("res://scripts/minigames/komsular.gd")
 const TYPE_NAMES := {"pazar": "Pazar", "haber": "Komşuya Haber", "kedi": "Kayıp Kedi", "yemek": "Yemek", "altin": "Altın Günü"}
 
 var world: Mahalle3D
@@ -26,6 +27,10 @@ var level_note := ""
 var hud_hearts: HBoxContainer
 var dialog: PanelContainer
 var dialog_text: Label
+var dialog_name: Label
+var dialog_face: Portrait
+var dialog_who := ""
+var friends_button: Button
 var dialog_buttons: HBoxContainer
 var game: Minigame
 var busy := false
@@ -50,6 +55,15 @@ func _ready() -> void:
 	gap.size_flags_horizontal = SIZE_EXPAND_FILL
 	gap.mouse_filter = MOUSE_FILTER_IGNORE
 	bottom_bar.add_child(gap)
+	friends_button = UI.button("", _open_friends, 20)
+	friends_button.icon = UI.tex("heart")
+	friends_button.add_theme_constant_override("icon_max_width", 34)
+	friends_button.custom_minimum_size = Vector2(60, 56)
+	bottom_bar.add_child(friends_button)
+	var gap2 := Control.new()
+	gap2.custom_minimum_size.x = 10
+	gap2.mouse_filter = MOUSE_FILTER_IGNORE
+	bottom_bar.add_child(gap2)
 	shop_button = UI.button("Dükkan", _open_shop, 20)
 	shop_button.icon = UI.tex("file")
 	shop_button.add_theme_constant_override("icon_max_width", 34)
@@ -75,6 +89,7 @@ func _ready() -> void:
 func _build_world() -> void:
 	world = Mahalle3D.new()
 	world.teyze_tapped.connect(_on_teyze)
+	world.neighbor_tapped.connect(_on_neighbor)
 	add_child(world)
 
 
@@ -133,6 +148,8 @@ func _refresh() -> void:
 			heart.modulate = Color(0, 0, 0, 0.25)
 		hud_hearts.add_child(heart)
 	world.refresh_decor()
+	world.refresh_neighbors()
+	friends_button.visible = not GameState.neighbors_unlocked().is_empty()
 	world.bubble.visible = not GameState.is_day_over() and game == null
 	world.visible = game == null
 	bottom_bar.visible = game == null and not dialog.visible
@@ -148,11 +165,13 @@ func _build_dialog() -> void:
 	top.add_theme_constant_override("separation", 10)
 	var face := Portrait.new(Vector2(92, 104))
 	face.size_flags_vertical = SIZE_SHRINK_BEGIN
+	dialog_face = face
 	top.add_child(face)
 	var tv := VBoxContainer.new()
 	tv.size_flags_horizontal = SIZE_EXPAND_FILL
 	var name_label := UI.label(Errands.TEYZE, 20, UI.ACCENT)
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	dialog_name = name_label
 	tv.add_child(name_label)
 	dialog_text = UI.label("", 22, UI.INK, true)
 	dialog_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -167,8 +186,17 @@ func _build_dialog() -> void:
 	overlay.add_child(dialog)
 
 
-## buttons: [[metin, Callable], ...]
-func _say(text: String, buttons: Array) -> void:
+## buttons: [[metin, Callable], ...]. who: konuşan komşunun id'si, boşsa Fatma Teyze.
+func _say(text: String, buttons: Array, who := "") -> void:
+	if who != dialog_who:
+		dialog_who = who
+		if who == "":
+			dialog_name.text = Errands.TEYZE
+			dialog_face.set_look("#d6577a", "#4f8a5b")
+		else:
+			var n := Neighbors.get_neighbor(who)
+			dialog_name.text = n["name"]
+			dialog_face.set_look(n["scarf"], n["cardigan"], n["skirt"])
 	dialog_text.text = text
 	for c in dialog_buttons.get_children():
 		c.queue_free()
@@ -182,6 +210,7 @@ func _say(text: String, buttons: Array) -> void:
 
 func _close_dialog() -> void:
 	dialog.visible = false
+	world.end_talk()
 	_refresh()
 
 
@@ -203,6 +232,24 @@ func _on_teyze() -> void:
 	_say(info["intro"], [["Hemen teyzecim", _start_game.bind(errand["type"], info)], ["Sonra", _close_dialog]])
 
 
+func _on_neighbor(id: String) -> void:
+	if busy or game != null or tutorial_step >= 0:
+		return
+	busy = true
+	Sfx.play("tap")
+	await world.walk_to_neighbor(id)
+	busy = false
+	var n := Neighbors.get_neighbor(id)
+	if not GameState.favor_available(id):
+		var line: String = n["chat"][randi() % n["chat"].size()]
+		_say(line, [["Hadi kolay gelsin teyzem", _close_dialog]], id)
+		return
+	var info := Neighbors.favor(id, GameState.favor_seed(id), GameState.level())
+	if GameState.hearts(id) == 0:
+		info["intro"] = "Sen Fatma'nın yardımcısısın değil mi? Ben %s. %s" % [n["name"], info["intro"]]
+	_say(info["intro"], [["Olur teyzem", _start_game.bind(n["type"], info)], ["Sonra", _close_dialog]], id)
+
+
 func _start_game(type: String, info: Dictionary) -> void:
 	_close_dialog()
 	game = MINIGAMES[type].new().setup(info)
@@ -210,7 +257,7 @@ func _start_game(type: String, info: Dictionary) -> void:
 	add_child(game)
 	if type == "kedi":
 		game.content.add_child(UI.spacer())
-	var back := UI.button("Teyzeye dön", _quit_game, 18)
+	var back := UI.button("Mahalleye dön" if info.has("neighbor") else "Teyzeye dön", _quit_game, 18)
 	back.custom_minimum_size = Vector2(160, 44)
 	back.size_flags_horizontal = SIZE_SHRINK_BEGIN
 	game.content.add_child(back)
@@ -222,6 +269,19 @@ func _open_shop() -> void:
 		return
 	_close_dialog()
 	game = SHOP.new().setup({})
+	add_child(game)
+	var back := UI.button("Mahalleye dön", _quit_game, 18)
+	back.custom_minimum_size = Vector2(180, 48)
+	back.size_flags_horizontal = SIZE_SHRINK_BEGIN
+	game.content.add_child(back)
+	_refresh()
+
+
+func _open_friends() -> void:
+	if game != null or busy:
+		return
+	_close_dialog()
+	game = KOMSULAR.new().setup({})
 	add_child(game)
 	var back := UI.button("Mahalleye dön", _quit_game, 18)
 	back.custom_minimum_size = Vector2(180, 48)
@@ -291,9 +351,30 @@ func _on_game_finished(_success: bool, info: Dictionary) -> void:
 	game.queue_free()
 	game = null
 	level_note = ""
+	if info.has("neighbor"):
+		_finish_favor(info)
+		return
 	var reward := GameState.complete_errand(type, info.get("bonus", 0))
 	var text := "%s Al bakalım, %d kurabiye senin!" % [info["thanks"], reward]
 	_say(text + level_note, [["Afiyet olsun bana", _close_dialog]])
+
+
+func _finish_favor(info: Dictionary) -> void:
+	var id: String = info["neighbor"]
+	var n := Neighbors.get_neighbor(id)
+	var r := GameState.complete_favor(id)
+	var text := "%s Al bakalım, %d kurabiye." % [info["thanks"], r["reward"]]
+	text += "\n\nDostluk: %d/%d kalp." % [r["hearts"], Neighbors.MAX_HEARTS]
+	match Neighbors.GIFTS.get(r["gift"], ""):
+		"kurabiye":
+			text += " Sana bir tabak kurabiye de ayırdım, içinde 10 tane var!"
+		"sus":
+			text += " Sana bir hediyem var: %s. Mahallene koydum bile!" % Decor.get_decor(n["gift_decor"])["name"]
+		"can":
+			text += " Artık sen benim can dostumsun evladım! Bu 25 kurabiye de benden."
+	if r["gift"] != 0:
+		Sfx.play("levelup", -4.0)
+	_say(text + level_note, [["Sağ ol teyzem", _close_dialog]], id)
 
 
 func _on_level_up(lv: int) -> void:
@@ -304,6 +385,9 @@ func _on_level_up(lv: int) -> void:
 			level_note += " Yeni görev açıldı: %s." % TYPE_NAMES[t]
 	if lv == 4:
 		level_note += " Artık günde bir görev fazla var."
+	for n in Neighbors.ALL:
+		if n["unlock"] == lv:
+			level_note += " Mahalleye %s taşındı, bir uğra!" % n["name"]
 
 
 ## Uygulamaya geri dönülünce gün değiştiyse yeni günü başlatır.
@@ -350,6 +434,16 @@ func _screenshot_tour(dir: String) -> void:
 	_on_teyze()
 	await get_tree().create_timer(3.0).timeout
 	await _shot(dir, "2_gorev")
+	_close_dialog()
+	GameState.friendship = {"filiz": 5, "miyase": 2}
+	_on_neighbor("filiz")
+	await get_tree().create_timer(3.0).timeout
+	await _shot(dir, "2_komsu")
+	_finish_favor(Neighbors.favor("filiz", 1, 4))
+	await _shot(dir, "2_komsu_hediye")
+	_close_dialog()
+	await get_tree().create_timer(1.0).timeout
+	await _shot(dir, "2_kusevi")
 	for type in ["pazar", "haber", "kedi", "yemek", "altin"]:
 		var info := Errands.build({"type": type, "seed": 7, "level": 5})
 		_start_game(type, info)
@@ -372,6 +466,9 @@ func _screenshot_tour(dir: String) -> void:
 	game.set("tab", "decor")
 	game.call("_fill")
 	await _shot(dir, "4_dukkan_susler")
+	_quit_game()
+	_open_friends()
+	await _shot(dir, "4_komsular")
 	_quit_game()
 	_open_settings()
 	await _shot(dir, "5_ayarlar")

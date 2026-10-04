@@ -37,6 +37,15 @@ func _init(size_px := Vector2(96, 110), full_body := false, scarf := "#d6577a", 
 		cam.look_at_from_position(Vector3(0, 1.3, 2.0), Vector3(0, 1.15, 0))
 
 
+## Portredeki teyzeyi başka renklerle (başka bir teyzeyle) değiştirir.
+func set_look(scarf: String, cardigan: String, skirt := "#7a4e8a") -> void:
+	var rot := _model.rotation
+	_model.queue_free()
+	_model = Models.teyze(scarf, cardigan, skirt)
+	_model.rotation = rot
+	viewport.add_child(_model)
+
+
 func _process(delta: float) -> void:
 	_t += delta
 	_model.rotation.y = sin(_t * 1.2) * 0.25
