@@ -22,12 +22,51 @@ var errands: Array = []
 var done_count := 0
 ## Bir sonraki günde mutlaka gelecek, yeni açılmış görev türleri.
 var fresh_unlocks: Array = []
+## Bugünün görevlerinin ait olduğu takvim günü (YYYY-MM-DD, telefonun saati).
+var errands_date := ""
+## Kaç gündür üst üste gelindi.
+var streak := 0
+## Henüz gösterilmemiş günlük hediye (kurabiye). Ana ekran gösterip sıfırlar.
+var daily_gift := 0
 
 
 func _ready() -> void:
 	load_game()
 	if errands.is_empty():
 		new_day(false)
+		errands_date = today()
+		streak = 1
+		save_game()
+	check_new_day()
+
+
+# --- takvim -----------------------------------------------------------------
+
+static func today() -> String:
+	return Time.get_date_string_from_system()
+
+
+static func days_between(a: String, b: String) -> int:
+	if a == "" or b == "":
+		return 0
+	var ta := Time.get_unix_time_from_datetime_string(a)
+	var tb := Time.get_unix_time_from_datetime_string(b)
+	return int(round((tb - ta) / 86400.0))
+
+
+## Telefonun takviminde yeni bir güne geçildiyse yeni görevleri ve günlük
+## hediyeyi hazırlar. Oyun açılınca ve uygulamaya geri dönülünce çağrılır.
+func check_new_day() -> bool:
+	var now := today()
+	var gap := days_between(errands_date, now)
+	if errands_date != "" and gap <= 0:
+		return false
+	streak = streak + 1 if gap == 1 else 1
+	daily_gift = 2 + mini(streak, 7)
+	kurabiye += daily_gift
+	errands_date = now
+	new_day()
+	return true
 
 
 # --- seviye ---------------------------------------------------------------
@@ -163,6 +202,8 @@ func save_game() -> void:
 	cfg.set_value("gun", "gorevler", errands)
 	cfg.set_value("gun", "biten", done_count)
 	cfg.set_value("gun", "yeni", fresh_unlocks)
+	cfg.set_value("gun", "tarih", errands_date)
+	cfg.set_value("oyuncu", "seri", streak)
 	cfg.save(SAVE_PATH)
 
 
@@ -177,6 +218,8 @@ func load_game() -> void:
 	errands = cfg.get_value("gun", "gorevler", [])
 	done_count = cfg.get_value("gun", "biten", 0)
 	fresh_unlocks = cfg.get_value("gun", "yeni", [])
+	errands_date = cfg.get_value("gun", "tarih", "")
+	streak = cfg.get_value("oyuncu", "seri", 0)
 
 
 func reset() -> void:
@@ -185,4 +228,7 @@ func reset() -> void:
 	xp = 0
 	perks = {}
 	fresh_unlocks = []
+	streak = 1
+	daily_gift = 0
+	errands_date = today()
 	new_day(false)

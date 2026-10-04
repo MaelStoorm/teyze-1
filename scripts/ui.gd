@@ -75,6 +75,7 @@ static func button(text: String, on_press: Callable, size := 22) -> Button:
 	b.text = text
 	b.custom_minimum_size = Vector2(0, 60)
 	b.add_theme_font_size_override("font_size", size)
+	b.pressed.connect(func(): Sfx.play("tap", -4.0))
 	b.pressed.connect(on_press)
 	return b
 
@@ -123,6 +124,7 @@ static func spacer() -> Control:
 
 
 static func shake(node: Control) -> void:
+	Sfx.play("bad", -3.0)
 	var x := node.position.x
 	var tw := node.create_tween()
 	for d in [8, -8, 6, -6, 0]:
@@ -130,6 +132,7 @@ static func shake(node: Control) -> void:
 
 
 static func pop(node: Control) -> void:
+	Sfx.play("good", -2.0, randf_range(0.95, 1.08))
 	node.pivot_offset = node.size / 2
 	var tw := node.create_tween()
 	tw.tween_property(node, "scale", Vector2(1.15, 1.15), 0.08)
