@@ -8,6 +8,8 @@ const ACCENT := Color("c8412f")
 const GOOD := Color("4f8a5b")
 
 static var _textures := {}
+## Ayarlardan gelen yazı boyutu çarpanı (1.0 normal, 1.2 büyük).
+static var text_scale := 1.0
 
 
 static func tex(name: String) -> Texture2D:
@@ -18,7 +20,7 @@ static func tex(name: String) -> Texture2D:
 
 static func make_theme() -> Theme:
 	var t := Theme.new()
-	t.default_font_size = 22
+	t.default_font_size = int(22 * text_scale)
 	t.set_color("font_color", "Label", INK)
 	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		t.set_color(state, "Button", INK)
@@ -65,7 +67,7 @@ static func label(text: String, size := 22, color := INK, wrap := false) -> Labe
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_font_size_override("font_size", int(size * text_scale))
 	l.add_theme_color_override("font_color", color)
 	return l
 
@@ -74,7 +76,7 @@ static func button(text: String, on_press: Callable, size := 22) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.custom_minimum_size = Vector2(0, 60)
-	b.add_theme_font_size_override("font_size", size)
+	b.add_theme_font_size_override("font_size", int(size * text_scale))
 	b.pressed.connect(func(): Sfx.play("tap", -4.0))
 	b.pressed.connect(on_press)
 	return b
@@ -95,6 +97,7 @@ static func icon_button(icon: String, caption: String, on_press: Callable) -> Bu
 	s.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(s)
 	var l := label(caption, 18)
+	l.add_theme_font_size_override("font_size", 18)  # resim zaten anlatıyor, taşmasın
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(l)
 	b.add_child(v)

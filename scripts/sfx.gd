@@ -28,6 +28,8 @@ func _ready() -> void:
 	music.stream = m
 	music.volume_db = -9.0
 	add_child(music)
+	sound_on = GameState.settings["sound"]
+	music_on = GameState.settings["music"]
 
 
 func play(name: String, volume_db := 0.0, pitch := 1.0) -> void:
@@ -41,6 +43,7 @@ func play(name: String, volume_db := 0.0, pitch := 1.0) -> void:
 	p.play()
 
 
+## Ayara göre müziği başlatır ya da durdurur.
 func set_music(on: bool) -> void:
 	music_on = on
 	if on and not music.playing:

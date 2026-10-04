@@ -425,6 +425,19 @@ def _(i):
     i.shape(P(*pts), "#f2c23a")
 
 
+@icon("ayar")
+def _(i):
+    def gear(d, s):
+        pts = []
+        for k in range(16):
+            a = math.radians(k * 22.5)
+            r = 56 if (k // 1) % 2 == 0 else 44
+            pts.append((s(64 + r * math.cos(a)), s(64 + r * math.sin(a))))
+        d.polygon(pts, fill=255)
+        d.ellipse((s(46), s(46), s(82), s(82)), fill=0)
+    i.shape(gear, "#9aa0a6")
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     for name, (fn, w, h) in ICONS.items():
