@@ -32,6 +32,12 @@ var streak := 0
 var settings := {"text": 1.0, "sound": true, "music": true, "tutorial": false}
 ## Henüz gösterilmemiş günlük hediye (kurabiye). Ana ekran gösterip sıfırlar.
 var daily_gift := 0
+## Komşularla dostluk: id -> kalp sayısı.
+var friendship := {}
+## Bugün ricası yapılan komşular: id -> true. Yeni günde sıfırlanır.
+var favors_done := {}
+## Komşu ricalarının bugünkü içerik tohumları: id -> seed.
+var favor_seeds := {}
 
 
 func _ready() -> void:
@@ -106,6 +112,54 @@ func _xp_for(lv: int) -> int:
 func unlocked_types() -> Array:
 	var lv := level()
 	return UNLOCKS.keys().filter(func(t): return UNLOCKS[t] <= lv)
+
+
+# --- komşular ----------------------------------------------------------------
+
+func neighbors_unlocked() -> Array:
+	return Neighbors.ALL.filter(func(n): return n["unlock"] <= level())
+
+
+func hearts(id: String) -> int:
+	return friendship.get(id, 0)
+
+
+func favor_available(id: String) -> bool:
+	return not favors_done.has(id)
+
+
+func favor_seed(id: String) -> int:
+	if not favor_seeds.has(id):
+		favor_seeds[id] = randi()
+	return favor_seeds[id]
+
+
+## Ricayı bitirir. Dönen sözlük: reward (kurabiye), hearts, gift (eşik ya da 0).
+func complete_favor(id: String) -> Dictionary:
+	var before := level()
+	favors_done[id] = true
+	var h := mini(hearts(id) + 1, Neighbors.MAX_HEARTS)
+	var gained := h > hearts(id)
+	friendship[id] = h
+	var reward := 2 + perk_level("dua")
+	var gift := 0
+	if gained and Neighbors.GIFTS.has(h):
+		gift = h
+		match Neighbors.GIFTS[h]:
+			"kurabiye":
+				reward += 10
+			"can":
+				reward += 25
+			"sus":
+				decor[Neighbors.get_neighbor(id)["gift_decor"]] = true
+	kurabiye += reward
+	xp += XP_PER_ERRAND / 2
+	save_game()
+	changed.emit()
+	var after := level()
+	if after > before:
+		leveled_up.emit(after)
+	return {"reward": reward, "hearts": h, "gift": gift}
 
 
 func errands_per_day() -> int:
@@ -204,6 +258,8 @@ func new_day(advance := true) -> void:
 		types.append(bag[0])
 	types.shuffle()
 	errands.clear()
+	favors_done.clear()
+	favor_seeds.clear()
 	for t in types:
 		errands.append({"type": t, "seed": randi(), "level": level()})
 	done_count = 0
@@ -226,6 +282,9 @@ func save_game() -> void:
 	cfg.set_value("gun", "tarih", errands_date)
 	cfg.set_value("oyuncu", "seri", streak)
 	cfg.set_value("ayarlar", "hepsi", settings)
+	cfg.set_value("komsular", "dostluk", friendship)
+	cfg.set_value("komsular", "ricalar", favors_done)
+	cfg.set_value("komsular", "tohumlar", favor_seeds)
 	cfg.save(SAVE_PATH)
 
 
@@ -244,6 +303,9 @@ func load_game() -> void:
 	errands_date = cfg.get_value("gun", "tarih", "")
 	streak = cfg.get_value("oyuncu", "seri", 0)
 	settings.merge(cfg.get_value("ayarlar", "hepsi", {}), true)
+	friendship = cfg.get_value("komsular", "dostluk", {})
+	favors_done = cfg.get_value("komsular", "ricalar", {})
+	favor_seeds = cfg.get_value("komsular", "tohumlar", {})
 
 
 func reset() -> void:
@@ -252,6 +314,7 @@ func reset() -> void:
 	xp = 0
 	perks = {}
 	decor = {}
+	friendship = {}
 	fresh_unlocks = []
 	streak = 1
 	daily_gift = 0

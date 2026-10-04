@@ -91,6 +91,8 @@ func _fill() -> void:
 func _fill_decor() -> void:
 	seed(11)
 	for d in Decor.ALL:
+		if d.get("gift", false):
+			continue
 		var owned: bool = GameState.decor.has(d["id"])
 		var panel := PanelContainer.new()
 		panel.add_theme_stylebox_override("panel", UI.box(UI.CREAM, UI.INK, 3, 8))

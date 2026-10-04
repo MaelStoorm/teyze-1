@@ -45,12 +45,30 @@ func _initialize() -> void:
 	assert(not gs.buy_decor("fener"), "parası yetmeyen süs alınmamalı")
 	main.world.refresh_decor()
 	assert(main.world._decor_nodes.has("kedievi"))
-	print("TAMAM: 6 gün oynandı, yeni görevler açıldı, dükkan çalışıyor")
+	# komşular: her gün bir rica, kalpler, hediyeler
+	assert(gs.neighbors_unlocked().size() == 3, "Sv 5'te üç komşu da açık olmalı")
+	main._refresh()
+	assert(main.world.neighbors.size() == 3)
+	gs.kurabiye = 0
+	for d in 6:
+		for n in gs.neighbors_unlocked():
+			var id: String = n["id"]
+			assert(gs.favor_available(id))
+			await _play({"type": n["type"]}, Neighbors.favor(id, gs.favor_seed(id), gs.level()))
+			assert(not gs.favor_available(id), "rica bitince tekrar verilmemeli")
+		gs.new_day()
+	assert(gs.hearts("filiz") == 6 and gs.hearts("hulya") == 6)
+	assert(gs.decor.has("kusevi") and gs.decor.has("sardunya") and gs.decor.has("salincak"), "6 kalpte süs hediyesi gelmeli")
+	main.world.refresh_decor()
+	assert(main.world._decor_nodes.has("salincak"))
+	print("Komşular: kalpler %s, kurabiye %d" % [gs.friendship, gs.kurabiye])
+	print("TAMAM: 6 gün oynandı, yeni görevler açıldı, dükkan ve komşular çalışıyor")
 	quit(0)
 
 
-func _play(errand: Dictionary) -> void:
-	var info := Errands.build(errand)
+func _play(errand: Dictionary, info := {}) -> void:
+	if info.is_empty():
+		info = Errands.build(errand)
 	main._start_game(errand["type"], info)
 	await process_frame
 	var g = main.game
