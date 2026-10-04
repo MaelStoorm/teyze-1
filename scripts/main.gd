@@ -583,6 +583,10 @@ func _neighbor_extras(id: String) -> Array:
 		out.append(["Bir el tavla atalım", _open_fun.bind("tavla", "ahmet")])
 	if id == "filiz":
 		out.append(["Çay demlemeyi öğret", _open_fun.bind("cay", "filiz")])
+	if id == "miyase":
+		out.append(["Örgü örelim", _open_fun.bind("orgu", "miyase")])
+	if id == "hulya":
+		out.append(["Mantı yapalım", _open_fun.bind("manti", "hulya")])
 	return out
 
 
@@ -1012,6 +1016,10 @@ func _open_home() -> void:
 
 ## Ahmet Amca'yla tavla ya da Filiz Teyze'yle çay demleme. Günün ilk
 ## oyununda küçük bir ödül var; sonra istediğin kadar oynarsın.
+## Komşularla oynanan oyunların günün ilk oyunundaki ödülü: [kazanınca, kaybedince].
+const FUN_REWARD := {"tavla": [6, 2], "cay": [4, 1], "orgu": [5, 2], "manti": [5, 2], "balik": [5, 2]}
+
+
 func _open_fun(kind: String, who: String) -> void:
 	_close_dialog()
 	game = load("res://scripts/minigames/%s.gd" % kind).new().setup({})
@@ -1033,7 +1041,7 @@ func _on_fun_finished(success: bool, kind: String, who: String) -> void:
 	var reward := 0
 	if first:
 		GameState.gifts_today[key] = true
-		reward = (6 if success else 2) if kind == "tavla" else (4 if success else 1)
+		reward = FUN_REWARD.get(kind, [4, 1])[0 if success else 1]
 		GameState.add_kurabiye(reward)
 	var text := ""
 	match kind:
@@ -1041,6 +1049,12 @@ func _on_fun_finished(success: bool, kind: String, who: String) -> void:
 			text = "Eline sağlık, beni yendin! Kırk yıldır yenilmemiştim valla." if success else "Bu sefer ben kazandım ama iyi oynadın delikanlı. Yarın rövanş!"
 		"cay":
 			text = "Tavşan kanı olmuş, mis gibi! Sen bu işi öğrendin." if success else "Olsun evladım, çay demlemek sabır ister. Yine gel."
+		"orgu":
+			text = "Atkın sıcacık oldu, kışın boynunu sarar! Elinin ayarı varmış senin." if success else "Birkaç ilmek kaçtı ama olsun, el emeği göz nuru. Yine öreriz."
+		"manti":
+			text = "Kaşığa dört tane sığıyor maşallah! Annem görse seni evlat edinirdi." if success else "Olsun, hamur da sabır ister. Yine yaparız."
+		"balik":
+			text = "Rastgele! Akşama tavada kızartırız, sen de gel." if success else "Balık bugün nazlıydı. Olsun, göl kenarında sohbet de güzel."
 	if reward > 0:
 		text += " Al bakalım, %d kurabiye." % reward
 	_say(text, [["Sağ ol", _close_dialog]], who)
