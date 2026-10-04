@@ -32,7 +32,7 @@ var dialog_name: Label
 var dialog_face: Portrait
 var dialog_who := ""
 var friends_button: Button
-var dialog_buttons: HBoxContainer
+var dialog_buttons: GridContainer
 var game: Minigame
 var busy := false
 var overlay: VBoxContainer
@@ -41,6 +41,7 @@ var overlay: VBoxContainer
 var task := {}
 var task_panel: PanelContainer
 var task_label: Label
+var top_row: HBoxContainer
 
 
 func _ready() -> void:
@@ -48,6 +49,10 @@ func _ready() -> void:
 	theme = UI.make_theme()
 	_build_world()
 	overlay = UI.page(self, 10)
+	top_row = HBoxContainer.new()
+	top_row.add_theme_constant_override("separation", 10)
+	top_row.mouse_filter = MOUSE_FILTER_IGNORE
+	overlay.add_child(top_row)
 	_build_hud()
 	_build_task_panel()
 	overlay.add_child(UI.spacer())
@@ -162,7 +167,9 @@ func _build_hud() -> void:
 	h2.add_child(hud_day)
 	v.add_child(h2)
 	p.add_child(v)
-	overlay.add_child(p)
+	p.custom_minimum_size.x = 300
+	p.size_flags_vertical = SIZE_SHRINK_BEGIN
+	top_row.add_child(p)
 
 
 func _refresh() -> void:
@@ -184,6 +191,7 @@ func _refresh() -> void:
 	friends_button.visible = not GameState.neighbors_unlocked().is_empty()
 	world.visible = game == null
 	bottom_bar.visible = game == null and not dialog.visible
+	top_row.visible = game == null and not dialog.visible
 	_refresh_task()
 
 
@@ -278,7 +286,9 @@ func _build_task_panel() -> void:
 	h.add_child(x)
 	task_panel.add_child(h)
 	task_panel.visible = false
-	overlay.add_child(task_panel)
+	task_panel.size_flags_horizontal = SIZE_EXPAND_FILL
+	task_panel.size_flags_vertical = SIZE_SHRINK_BEGIN
+	top_row.add_child(task_panel)
 
 
 func _ask_drop_task() -> void:
@@ -300,10 +310,8 @@ func _drop_task() -> void:
 
 func _build_dialog() -> void:
 	dialog = PanelContainer.new()
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 10)
 	var top := HBoxContainer.new()
-	top.add_theme_constant_override("separation", 10)
+	top.add_theme_constant_override("separation", 12)
 	var face := Portrait.new(Vector2(92, 104))
 	face.size_flags_vertical = SIZE_SHRINK_BEGIN
 	dialog_face = face
@@ -314,15 +322,17 @@ func _build_dialog() -> void:
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	dialog_name = name_label
 	tv.add_child(name_label)
-	dialog_text = UI.label("", 22, UI.INK, true)
+	dialog_text = UI.label("", 20, UI.INK, true)
 	dialog_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	tv.add_child(dialog_text)
 	top.add_child(tv)
-	v.add_child(top)
-	dialog_buttons = HBoxContainer.new()
-	dialog_buttons.add_theme_constant_override("separation", 10)
-	v.add_child(dialog_buttons)
-	dialog.add_child(v)
+	dialog_buttons = GridContainer.new()
+	dialog_buttons.add_theme_constant_override("h_separation", 8)
+	dialog_buttons.add_theme_constant_override("v_separation", 8)
+	dialog_buttons.custom_minimum_size.x = 190
+	dialog_buttons.size_flags_vertical = SIZE_SHRINK_CENTER
+	top.add_child(dialog_buttons)
+	dialog.add_child(top)
 	dialog.visible = false
 	overlay.add_child(dialog)
 
@@ -351,12 +361,15 @@ func _say(text: String, buttons: Array, who := "") -> void:
 	dialog_text.text = text
 	for c in dialog_buttons.get_children():
 		c.queue_free()
+	dialog_buttons.columns = 1 if buttons.size() <= 2 else 2
 	for pair in buttons:
-		var b := UI.button(pair[0], pair[1])
+		var b := UI.button(pair[0], pair[1], 20)
 		b.size_flags_horizontal = SIZE_EXPAND_FILL
+		b.custom_minimum_size.y = 48
 		dialog_buttons.add_child(b)
 	dialog.visible = true
 	bottom_bar.visible = false
+	top_row.visible = tutorial_step >= 0 and TUTORIAL[tutorial_step][1] == "hud"
 
 
 func _close_dialog() -> void:
@@ -569,12 +582,10 @@ func _start_game(type: String, info: Dictionary) -> void:
 	game = MINIGAMES[type].new().setup(info)
 	game.finished.connect(_on_game_finished.bind(info))
 	add_child(game)
-	if type == "kedi":
-		game.content.add_child(UI.spacer())
 	var back := UI.button("Mahalleye dön" if info.has("neighbor") else "Teyzeye dön", _quit_game, 18)
 	back.custom_minimum_size = Vector2(160, 44)
 	back.size_flags_horizontal = SIZE_SHRINK_BEGIN
-	game.content.add_child(back)
+	game.add_back(back)
 	_refresh()
 
 
@@ -587,7 +598,7 @@ func _open_shop() -> void:
 	var back := UI.button("Mahalleye dön", _quit_game, 18)
 	back.custom_minimum_size = Vector2(180, 48)
 	back.size_flags_horizontal = SIZE_SHRINK_BEGIN
-	game.content.add_child(back)
+	game.add_back(back)
 	_refresh()
 
 
@@ -600,7 +611,7 @@ func _open_friends() -> void:
 	var back := UI.button("Mahalleye dön", _quit_game, 18)
 	back.custom_minimum_size = Vector2(180, 48)
 	back.size_flags_horizontal = SIZE_SHRINK_BEGIN
-	game.content.add_child(back)
+	game.add_back(back)
 	_refresh()
 
 
@@ -612,11 +623,10 @@ func _open_settings() -> void:
 	game.show_tutorial.connect(func(): _quit_game(); _tutorial(0))
 	game.edit_avatar.connect(func(): _open_avatar())
 	add_child(game)
-	game.content.add_child(UI.spacer())
 	var back := UI.button("Mahalleye dön", _quit_game, 18)
 	back.custom_minimum_size = Vector2(180, 48)
 	back.size_flags_horizontal = SIZE_SHRINK_BEGIN
-	game.content.add_child(back)
+	game.add_back(back)
 	_refresh()
 
 
@@ -744,8 +754,10 @@ func _screenshot_tour(dir: String) -> void:
 	GameState.new_day(false)
 	var splash := Splash.new()
 	add_child(splash)
-	await get_tree().create_timer(0.9).timeout
+	await get_tree().create_timer(1.6).timeout
 	await _shot(dir, "00_acilis")
+	await get_tree().create_timer(2.6).timeout
+	await _shot(dir, "00_baslik")
 	splash.close()
 	_open_avatar()
 	await _shot(dir, "01_karakter")

@@ -50,17 +50,16 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     e = emblem(512)
     e.save(OUT / "logo.png")
-    # Android açılış görseli: koyu zemin, ortada logo ve yazı
-    w, h = 1080, 1920
+    # Android açılış görseli (yatay): koyu zemin, solda logo, sağda yazı
+    w, h = 1920, 1080
     sp = Image.new("RGBA", (w, h), BG + (255,))
-    em = e.resize((440, 440), Image.LANCZOS)
-    sp.alpha_composite(em, ((w - 440) // 2, 640))
+    em = e.resize((400, 400), Image.LANCZOS)
+    sp.alpha_composite(em, (520, (h - 400) // 2))
     d = ImageDraw.Draw(sp)
-    f1 = ImageFont.truetype(FONT, 84)
-    f2 = ImageFont.truetype(FONT, 46)
-    for text, font, y, col in [("MaelStoorm", f1, 1130, (255, 255, 255)), ("STUDIOS", f2, 1240, (140, 200, 255))]:
-        tw = d.textlength(text, font=font)
-        d.text(((w - tw) / 2, y), text, font=font, fill=col)
+    f1 = ImageFont.truetype(FONT, 96)
+    f2 = ImageFont.truetype(FONT, 52)
+    d.text((980, 430), "MaelStoorm", font=f1, fill=(255, 255, 255))
+    d.text((984, 560), "STUDIOS", font=f2, fill=(140, 200, 255))
     sp.convert("RGB").save(OUT / "splash.png")
     print("logo ->", OUT)
 

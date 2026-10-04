@@ -8,7 +8,7 @@ signal tapped(id: String)
 
 const TEYZE_SPOT := Vector3(-2.6, 0, -3.7)
 const PLAYER_START := Vector3(0.4, 0, 0.5)
-const CAM_OFFSET := Vector3(0, 13.0, 9.6)
+const CAM_OFFSET := Vector3(0, 11.0, 9.2)
 const BOUNDS := Rect2(-19.5, -5.3, 39.0, 30.0)
 const STALL_POS := {"manav": Vector3(-4.2, 0, 12.2), "firin": Vector3(0.0, 0, 12.2), "sarkuteri": Vector3(4.2, 0, 12.2)}
 const KAHVE_POS := Vector3(-8.5, 0, -0.6)

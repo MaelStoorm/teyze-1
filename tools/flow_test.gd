@@ -13,7 +13,7 @@ func _initialize() -> void:
 	gs.reset()
 	gs.avatar = {"gender": "kiz"}
 	for c in main.get_children():
-		if c is Splash:  # açılış ekranı testte beklenmez
+		if c.get_script() and c.get_script().resource_path.ends_with("splash.gd"):  # açılış ekranı testte beklenmez
 			c.queue_free()
 	var seen := {}
 	for d in 6:

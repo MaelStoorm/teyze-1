@@ -8,6 +8,8 @@ signal finished(success: bool)
 var data: Dictionary
 var hint: Label
 var content: VBoxContainer
+## Yatay ekranda sol sütun: başlık, ipucu ve geri düğmesi.
+var side: VBoxContainer
 
 
 func setup(d: Dictionary) -> Minigame:
@@ -31,7 +33,22 @@ func _ready() -> void:
 	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	bg.mouse_filter = MOUSE_FILTER_IGNORE
 	add_child(bg)
-	content = UI.page(self)
+	var page := UI.page(self, 10)
+	var cols := HBoxContainer.new()
+	cols.size_flags_vertical = SIZE_EXPAND_FILL
+	cols.add_theme_constant_override("separation", 12)
+	cols.mouse_filter = MOUSE_FILTER_IGNORE
+	page.add_child(cols)
+	side = VBoxContainer.new()
+	side.custom_minimum_size.x = 210
+	side.add_theme_constant_override("separation", 10)
+	side.mouse_filter = MOUSE_FILTER_IGNORE
+	cols.add_child(side)
+	content = VBoxContainer.new()
+	content.size_flags_horizontal = SIZE_EXPAND_FILL
+	content.add_theme_constant_override("separation", 10)
+	content.mouse_filter = MOUSE_FILTER_IGNORE
+	cols.add_child(content)
 	build()
 
 
@@ -50,8 +67,15 @@ func header(title: String, text: String) -> PanelContainer:
 	hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	v.add_child(hint)
 	p.add_child(v)
-	content.add_child(p)
+	side.add_child(p)
 	return p
+
+
+## Sol sütunun altına "geri" düğmesi.
+func add_back(button: Button) -> void:
+	side.add_child(UI.spacer())
+	button.size_flags_horizontal = SIZE_FILL
+	side.add_child(button)
 
 
 func say(text: String, color := UI.INK) -> void:
