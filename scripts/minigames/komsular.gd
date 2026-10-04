@@ -23,7 +23,7 @@ func _row(n: Dictionary) -> Control:
 	panel.add_theme_stylebox_override("panel", UI.box(UI.CREAM, UI.INK, 3, 8))
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
-	var face := Portrait.new(Vector2(70, 80), false, n["scarf"], n["cardigan"])
+	var face := Portrait.new(Vector2(70, 80), false, n)
 	face.size_flags_vertical = SIZE_SHRINK_CENTER
 	if not open:
 		face.modulate = Color(0, 0, 0, 0.35)

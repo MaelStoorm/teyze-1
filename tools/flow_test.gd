@@ -11,6 +11,10 @@ func _initialize() -> void:
 	await process_frame
 	gs = root.get_node("GameState")
 	gs.reset()
+	gs.avatar = {"gender": "kiz"}
+	for c in main.get_children():
+		if c is Splash:  # açılış ekranı testte beklenmez
+			c.queue_free()
 	var seen := {}
 	for d in 6:
 		while not gs.is_day_over():
@@ -45,30 +49,87 @@ func _initialize() -> void:
 	assert(not gs.buy_decor("fener"), "parası yetmeyen süs alınmamalı")
 	main.world.refresh_decor()
 	assert(main.world._decor_nodes.has("kedievi"))
-	# komşular: her gün bir rica, kalpler, hediyeler
-	assert(gs.neighbors_unlocked().size() == 3, "Sv 5'te üç komşu da açık olmalı")
+	# komşular: her gün bir rica, kalpler, hediyeler (dünyada yürüyerek yapılan işler)
+	assert(gs.neighbors_unlocked().size() == 4, "Sv 5'te dört komşu da açık olmalı")
 	main._refresh()
-	assert(main.world.neighbors.size() == 3)
+	assert(main.world.neighbors.size() == 4)
 	gs.kurabiye = 0
+	var kinds := {}
 	for d in 6:
+		var others := ["fatma"]
+		for o in gs.neighbors_unlocked():
+			others.append(o["id"])
 		for n in gs.neighbors_unlocked():
 			var id: String = n["id"]
 			assert(gs.favor_available(id))
-			await _play({"type": n["type"]}, Neighbors.favor(id, gs.favor_seed(id), gs.level()))
-			assert(not gs.favor_available(id), "rica bitince tekrar verilmemeli")
+			gs.favor_seeds[id] = d * 7 + 2  # her gün farklı, tekrarlanabilir içerik
+			var info := Neighbors.favor(id, gs.favor_seed(id), gs.level(), others)
+			kinds[info["kind"]] = true
+			if info["kind"] == "game":
+				await _play({"type": info["type"]}, info)
+			else:
+				main._start_task(id, info)
+				await _do_task(id, info)
+			assert(not gs.favor_available(id), "%s ricası bitmedi" % id)
+			assert(main.task.is_empty())
 		gs.new_day()
-	assert(gs.hearts("filiz") == 6 and gs.hearts("hulya") == 6)
-	assert(gs.decor.has("kusevi") and gs.decor.has("sardunya") and gs.decor.has("salincak"), "6 kalpte süs hediyesi gelmeli")
+	assert(kinds.has("shop") and kinds.has("deliver") and kinds.has("find") and kinds.has("game"), "her tür iş denenmeli: %s" % kinds)
+	assert(gs.hearts("filiz") == 6 and gs.hearts("hulya") == 6 and gs.hearts("ahmet") == 6)
+	assert(gs.decor.has("kusevi") and gs.decor.has("sardunya") and gs.decor.has("salincak") and gs.decor.has("tavla"), "6 kalpte süs hediyesi gelmeli")
 	main.world.refresh_decor()
 	assert(main.world._decor_nodes.has("salincak"))
+	# Sütlü: günde bir kez beslenir
+	assert(not gs.sutlu_fed_today())
+	main._feed_sutlu()
+	assert(gs.sutlu_fed_today() and gs.sutlu_love == 1 and main.world.sutlu_follow)
+	gs.feed_sutlu()
+	assert(gs.sutlu_love == 1, "aynı gün iki kez sevgi artmamalı")
+	# karakter
+	gs.set_avatar({"gender": "erkek", "hair": 2, "name": "Ali"})
+	main.world.set_player_look(gs.avatar)
+	assert(gs.call_name() == "Ali")
 	print("Komşular: kalpler %s, kurabiye %d" % [gs.friendship, gs.kurabiye])
 	print("TAMAM: 6 gün oynandı, yeni görevler açıldı, dükkan ve komşular çalışıyor")
 	quit(0)
 
 
+## Dünyadaki işi adım adım yapar (yürümeden, doğrudan etkileşimle).
+func _do_task(giver: String, info: Dictionary) -> void:
+	match info["kind"]:
+		"shop":
+			main._interact(giver)  # liste bitmeden dönünce iş bitmemeli
+			assert(not main.task.is_empty())
+			for item in info["want"]:
+				for k in info["want"][item]:
+					main._buy_item(_stall_of(item), item)
+			main._buy_item(_stall_of(info["want"].keys()[0]), info["want"].keys()[0])  # fazlası alınmaz
+		"deliver":
+			if not main.task["carrying"]:
+				main._interact(info["pickup"])
+			for t in info["targets"]:
+				main._interact(t)
+		"find":
+			main._interact("gozluk")
+	if not main.task.is_empty():
+		main._interact(giver)
+	main._close_dialog()
+
+
+func _stall_of(item: String) -> String:
+	for k in Props.STALLS:
+		if item in Props.STALLS[k]["items"]:
+			return "stall_" + k
+	return ""
+
+
 func _play(errand: Dictionary, info := {}) -> void:
 	if info.is_empty():
 		info = Errands.build(errand)
+	if errand["type"] == "pazar":  # Fatma'nın pazar işi artık pazar yerinde
+		info["kind"] = "shop"
+		main._start_task("fatma", info)
+		await _do_task("fatma", info)
+		return
 	main._start_game(errand["type"], info)
 	await process_frame
 	var g = main.game
@@ -96,5 +157,5 @@ func _play(errand: Dictionary, info := {}) -> void:
 				g._offer("yanlis", Button.new())
 				g._offer(info["guests"][i]["likes"], Button.new())
 				await create_timer(1.1).timeout
-	await create_timer(1.5).timeout
+	await create_timer(2.2).timeout
 	assert(main.game == null, "%s bitmedi" % errand["type"])

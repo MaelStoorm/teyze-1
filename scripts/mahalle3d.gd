@@ -1,12 +1,25 @@
 class_name Mahalle3D
 extends View3D
-## 3D mahalle: oyuncak maket gibi, kamera hafif yukarıdan bakar.
+## 3D mahalle: evler, kahvehane, pazar yeri, çiftlik ve gölet. Oyuncu dokunduğu
+## yere yürür; teyzelere, tezgahlara, hayvanlara dokununca etkileşir.
 
-signal teyze_tapped
-signal neighbor_tapped(id: String)
+## Bir kişiye ya da yere dokunuldu (oyuncu oraya yürüdükten sonra main işler).
+signal tapped(id: String)
 
 const TEYZE_SPOT := Vector3(-2.6, 0, -3.7)
-const PLAYER_START := Vector3(0.4, 0, 2.5)
+const PLAYER_START := Vector3(0.4, 0, 0.5)
+const CAM_OFFSET := Vector3(0, 13.0, 9.6)
+const BOUNDS := Rect2(-13.5, -5.3, 27.0, 21.0)
+const STALL_POS := {"manav": Vector3(-4.2, 0, 12.2), "firin": Vector3(0.0, 0, 12.2), "sarkuteri": Vector3(4.2, 0, 12.2)}
+const KAHVE_POS := Vector3(-8.5, 0, -0.6)
+const FARM := Rect2(6.5, 1.5, 6.5, 7.0)
+const POND_POS := Vector3(-9.5, 0, 7.5)
+const BOWL_POS := Vector3(-0.9, 0, -5.0)
+## Satın alınabilen süslerin kapladığı yer.
+const DECOR_BLOCKERS := {
+	"kedievi": Rect2(-4.9, -1.9, 1.2, 1.4), "semaver": Rect2(1.4, -0.9, 2.0, 1.2),
+	"cesme": Rect2(1.6, 5.8, 1.0, 1.6), "gul": Rect2(-4.1, 8.9, 3.0, 1.0), "tavla": Rect2(-6.8, 3.2, 2.0, 0.8),
+}
 
 var camera: Camera3D
 var teyze: Node3D
@@ -18,26 +31,22 @@ var _t := 0.0
 var player_walker: Walker
 var teyze_walker: Walker
 var _marker: MeshInstance3D
-var _cam_focus := Vector3(0, 0, -2.2)
-var _talk_after_walk := false
-## Komşular: id -> {"node", "walker", "bubble", "wait"}
+var _cam_focus := Vector3.ZERO
+var _blockers: Array[Rect2] = []
+## Dokunulabilen her şey: id -> {"node", "h", "walker" (varsa), "spot" (varsa)}
+var targets := {}
+## Dolaşan karakter ve hayvanlar: id -> {"walker", "area", "wait"}
+var wanderers := {}
 var neighbors := {}
 var _talking := ""
-var _talk_to: Node3D
-
-const CAM_OFFSET := Vector3(0, 18.5, 13.2)
-## Yürünemeyen yerler (x, z): evler, ağaçlar, tezgah, bank...
-const BLOCKERS := [
-	Rect2(-4.4, -8.4, 3.6, 3.4), Rect2(1.1, -8.6, 3.6, 3.4),
-	Rect2(3.6, -1.7, 1.4, 1.4), Rect2(-5.1, 0.3, 1.4, 1.4), Rect2(3.9, 5.3, 1.4, 1.4), Rect2(-4.9, 6.8, 1.4, 1.4),
-	Rect2(-2.8, -1.5, 1.2, 1.0), Rect2(1.8, 8.0, 1.2, 1.0), Rect2(-3.2, 4.1, 1.2, 1.0),
-	Rect2(2.3, 1.3, 1.3, 2.6), Rect2(3.4, 0.2, 1.3, 1.5), Rect2(-2.6, 1.5, 0.6, 1.4),
-	Rect2(0.7, -2.6, 0.4, 0.4), Rect2(-3.1, -4.2, 1.0, 1.0),
-]
-const DECOR_BLOCKERS := {
-	"kedievi": Rect2(-4.9, -1.9, 1.2, 1.4), "semaver": Rect2(1.4, -0.9, 2.0, 1.2),
-	"cesme": Rect2(1.6, 5.8, 1.0, 1.6), "gul": Rect2(-4.1, 8.9, 3.0, 1.0),
-}
+var _bubbles := {}
+var _goal_marks: Array[MeshInstance3D] = []
+var _goals: Array = []
+var _carry: Node3D
+var _glasses: Node3D
+var _ducks: Array[Node3D] = []
+var sutlu: Node3D
+var sutlu_follow := false
 
 
 func _ready() -> void:
@@ -53,69 +62,130 @@ func _build() -> void:
 	_root = root
 	viewport.add_child(root)
 
+	# Wii oyunları gibi: yumuşak, aydınlık, hafif parlak oyuncak görünüşü
 	var env := WorldEnvironment.new()
 	env.environment = Environment.new()
 	env.environment.background_mode = Environment.BG_COLOR
 	env.environment.background_color = Color("bfe3f0")
 	env.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.environment.ambient_light_color = Color("d8e6ff")
-	env.environment.ambient_light_energy = 0.3
+	env.environment.ambient_light_color = Color("dfe9ff")
+	env.environment.ambient_light_energy = 0.42
 	env.environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	root.add_child(env)
 
 	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-52, 38, 0)
-	sun.light_color = Color("fff1d6")
-	sun.light_energy = 0.75
+	sun.rotation_degrees = Vector3(-55, 32, 0)
+	sun.light_color = Color("fff3dc")
+	sun.light_energy = 0.8
+	sun.light_specular = 0.35
 	sun.shadow_enabled = true
-	sun.shadow_opacity = 0.75
-	sun.directional_shadow_max_distance = 40.0
+	sun.shadow_opacity = 0.6
+	sun.shadow_blur = 1.5
+	sun.directional_shadow_max_distance = 30.0
 	root.add_child(sun)
 
 	camera = Camera3D.new()
 	camera.fov = 45
 	root.add_child(camera)
-	camera.look_at_from_position(Vector3(0, 18.5, 11.0), Vector3(0, 0, -2.2))
 
 	# zemin, yollar, arnavut kaldırımı
-	Models.part(root, Models.box(30, 0.2, 40), "#6aa84f", Vector3(0, -0.1, 0))
-	_cobbles(root, Rect2(-8, -4.6, 16, 1.8))
-	_cobbles(root, Rect2(-0.8, -2.8, 1.6, 14))
+	Models.part(root, Models.box(44, 0.2, 52), "#6aa84f", Vector3(0, -0.1, 4))
+	_cobbles(root, Rect2(-14, -4.6, 28, 1.8))
+	_cobbles(root, Rect2(-0.8, -2.8, 1.6, 13.4))
+	_cobbles(root, Rect2(-6.6, 10.6, 13.2, 5.0))
+	_cobbles(root, Rect2(-8.0, 0.8, 7.2, 1.0))  # kahvehaneye giden yol
 	_flowers(root)
 
-	_place(root, Models.house("#f6f0e4", "#8a5a3b", "#3e6fb5"), Vector3(-2.6, 0, -6.6))
-	_place(root, Models.house("#f2d58a", "#5c3a26", "#8a5a3b"), Vector3(2.9, 0, -6.8))
-	_place(root, Models.pot(), Vector3(-4.5, 0, -5.0))
-	_place(root, Models.pot(), Vector3(-0.7, 0, -5.0))
-	_place(root, Models.pot(), Vector3(1.2, 0, -5.1))
-	_place(root, Models.lamp(), Vector3(0.9, 0, -2.4))
-	_place(root, Models.tree(), Vector3(4.3, 0, -1.0))
-	_place(root, Models.tree(), Vector3(-4.4, 0, 1.0), 40)
-	_place(root, Models.tree(), Vector3(4.6, 0, 6.0), 80)
-	_place(root, Models.tree(), Vector3(-4.2, 0, 7.5), 10)
-	_place(root, Models.bush(), Vector3(-2.2, 0, -1.0))
-	_place(root, Models.bush(), Vector3(2.4, 0, 8.5), 30)
-	_place(root, Models.bush(), Vector3(-2.6, 0, 4.6), 60)
-	_place(root, Models.stall(), Vector3(2.9, 0, 2.6), -90)
-	_place(root, Models.crate(), Vector3(3.8, 0, 0.6))
+	# evler: Miyase, Fatma, Filiz, Hülya
+	_solid(Models.house("#e8f0f4", "#3e6fb5", "#c96a43"), Vector3(-9.0, 0, -6.7), 0, Rect2(-10.8, -8.1, 3.6, 2.9))
+	_solid(Models.house("#f6f0e4", "#8a5a3b", "#3e6fb5"), Vector3(-2.6, 0, -6.6), 0, Rect2(-4.4, -8.0, 3.6, 2.9))
+	_solid(Models.house("#f2d58a", "#5c3a26", "#8a5a3b"), Vector3(2.9, 0, -6.8), 0, Rect2(1.1, -8.2, 3.6, 2.9))
+	_solid(Models.house("#f6dfe4", "#8e5bb5", "#4f8a5b"), Vector3(9.0, 0, -6.8), 0, Rect2(7.2, -8.2, 3.6, 2.9))
+	for x in [-11.0, -7.1, -4.5, -0.7, 1.2, 4.9, 7.2, 10.9]:
+		_place(root, Models.pot(), Vector3(x, 0, -5.0))
+	_solid(Models.lamp(), Vector3(0.9, 0, -2.4), 0, Rect2(0.7, -2.6, 0.4, 0.4))
+	_solid(Models.lamp(), Vector3(-6.0, 0, -2.4), 0, Rect2(-6.2, -2.6, 0.4, 0.4))
+	_solid(Models.lamp(), Vector3(6.0, 0, -2.4), 0, Rect2(5.8, -2.6, 0.4, 0.4))
+	for spec in [[Vector3(4.3, 0, -1.0), 0], [Vector3(-4.4, 0, 1.0), 40], [Vector3(4.6, 0, 6.0), 80], [Vector3(-4.2, 0, 7.5), 10],
+			[Vector3(-12.6, 0, 1.2), 20], [Vector3(-12.2, 0, 12.8), 50], [Vector3(9.2, 0, 12.6), 70], [Vector3(12.6, 0, 11.0), 0],
+			[Vector3(-6.4, 0, -1.6), 30], [Vector3(12.8, 0, -1.8), 60], [Vector3(-9.0, 0, 13.6), 15]]:
+		var p: Vector3 = spec[0]
+		_solid(Models.tree(), p, spec[1], Rect2(p.x - 0.7, p.z - 0.7, 1.4, 1.4))
+	_solid(Models.bush(), Vector3(-2.2, 0, -1.0), 0, Rect2(-2.8, -1.5, 1.2, 1.0))
+	_solid(Models.bush(), Vector3(2.4, 0, 8.5), 30, Rect2(1.8, 8.0, 1.2, 1.0))
+	_solid(Models.bush(), Vector3(-2.6, 0, 4.6), 60, Rect2(-3.2, 4.1, 1.2, 1.0))
+	_solid(Models.bush(), Vector3(7.4, 0, 10.4), 10, Rect2(6.8, 9.9, 1.2, 1.0))
+	_solid(Models.crate(), Vector3(3.8, 0, 0.6), 0, Rect2(3.4, 0.2, 1.4, 1.5))
 	_place(root, Models.crate(), Vector3(4.3, 0, 1.3))
-	_place(root, Models.bench(), Vector3(-2.3, 0, 2.2), 90)
+	_solid(Models.bench(), Vector3(-2.3, 0, 2.2), 90, Rect2(-2.6, 1.5, 0.6, 1.4))
 
+	# Ahmet Amca'nın kahvehanesi
+	_solid(Props.kahvehane(), KAHVE_POS, 0, Rect2(-10.7, -1.9, 4.4, 2.7))
+	for x in [-9.8, -7.2]:
+		_blockers.append(Rect2(x - 0.8, 1.9, 1.6, 0.8))  # çay masaları
+	_blockers.append(Rect2(-11.3, 0.7, 0.8, 0.8))  # semaver
+
+	# pazar yeri
+	for kind in STALL_POS:
+		var p: Vector3 = STALL_POS[kind]
+		_solid(Props.market_stall(kind), p, 0, Rect2(p.x - 1.35, p.z - 0.7, 3.5, 1.5))
+		var seller := Props.person(Props.STALLS[kind]["look"])
+		seller.position = p + Vector3(1.75, 0, 0.35)
+		seller.rotation.y = -0.35
+		seller.scale = Vector3.ONE * 1.3
+		root.add_child(seller)
+		targets["stall_" + kind] = {"node": seller, "h": 1.7, "spot": p + Vector3(0.9, 0, 1.4)}
+	var pz := Props.label3d("PAZAR YERİ", 96, Color("8e2f2a"))
+	pz.position = Vector3(0, 3.4, 10.4)
+	root.add_child(pz)
+
+	# çiftlik: çit, kümes, yalak, saman; inekler ve tavuklar
+	_place(root, Props.fence(FARM, Vector2(FARM.position.x, 5.0)), Vector3.ZERO)
+	_blockers.append(Rect2(FARM.position.x, FARM.position.y - 0.1, FARM.size.x, 0.2))
+	_blockers.append(Rect2(FARM.position.x, FARM.end.y - 0.1, FARM.size.x, 0.2))
+	_blockers.append(Rect2(FARM.end.x - 0.1, FARM.position.y, 0.2, FARM.size.y))
+	_blockers.append(Rect2(FARM.position.x - 0.1, FARM.position.y, 0.2, 5.0 - 0.8 - FARM.position.y))
+	_blockers.append(Rect2(FARM.position.x - 0.1, 5.8, 0.2, FARM.end.y - 5.8))
+	_solid(Props.coop(), Vector3(12.0, 0, 2.6), -90, Rect2(11.3, 1.9, 1.4, 1.6))
+	_solid(Props.trough(), Vector3(8.4, 0, 7.9), 0, Rect2(7.6, 7.5, 1.6, 0.8))
+	_solid(Props.hay(), Vector3(12.0, 0, 7.8), 20, Rect2(11.4, 7.3, 1.2, 1.0))
+	var inner := Rect2(FARM.position.x + 0.8, FARM.position.y + 0.8, FARM.size.x - 1.6, FARM.size.y - 1.6)
+	for i in 2:
+		_add_animal("inek%d" % i, Animals.cow(), Vector3(8.5 + i * 2.0, 0, 3.5 + i * 2.0), inner, 0.45, 0.8, 1.2)
+	for i in 4:
+		_add_animal("tavuk%d" % i, Animals.chicken(), Vector3(10.5 + (i % 2), 0, 3.0 + i * 0.5), Rect2(9.5, 2.4, 2.8, 3.6), 0.9, 2.5, 1.3)
+	_add_animal("kopek", Animals.dog(), Vector3(-1.8, 0, 3.4), Rect2(-6.0, -2.4, 11.0, 9.0), 1.6, 1.8, 1.3)
+
+	# gölet ve ördekler
+	_place(root, Props.pond(2.0), POND_POS)
+	_blockers.append(Rect2(POND_POS.x - 2.9, POND_POS.z - 2.3, 5.8, 4.6))
+	for i in 3:
+		var d := Animals.duck()
+		d.scale = Vector3.ONE * 1.3
+		root.add_child(d)
+		_ducks.append(d)
+		targets["ordek%d" % i] = {"node": d, "h": 0.4, "animal": "quack"}
+
+	# Fatma Teyze
 	teyze = Models.teyze()
 	teyze.position = TEYZE_SPOT
-	teyze.scale = Vector3.ONE * 1.5
+	teyze.scale = Vector3.ONE * 1.4
 	root.add_child(teyze)
 	teyze_walker = Walker.new()
 	teyze.add_child(teyze_walker)
-	player = Models.player()
-	player.position = PLAYER_START
-	player.rotation_degrees.y = 0
-	player.scale = Vector3.ONE * 1.4
-	root.add_child(player)
-	player_walker = Walker.new()
-	player.add_child(player_walker)
-	player_walker.arrived.connect(_on_player_arrived)
-	_update_blockers()
+	targets["fatma"] = {"node": teyze, "h": 1.7, "walker": teyze_walker, "spot": TEYZE_SPOT + Vector3(1.2, 0, 0.7)}
+
+	# Sütlü ve mama kabı
+	var bowl := Props.bowl()
+	_place(root, bowl, BOWL_POS)
+	bowl.name = "Kap"
+	sutlu = Animals.cat()
+	sutlu.scale = Vector3.ONE * 1.5
+	_add_animal("sutlu", sutlu, BOWL_POS + Vector3(-0.6, 0, 0.2), Rect2(-4.4, -5.3, 4.0, 0.7), 1.2, 3.0, 1.6)
+	targets["sutlu"]["animal"] = ""  # Sütlü'ye dokununca yanına gidilir
+
+	_make_player(PLAYER_START, 0.0)
+	_cam_focus = PLAYER_START
 
 	# dokunulan yerde beliren halka
 	var ring := TorusMesh.new()
@@ -124,50 +194,57 @@ func _build() -> void:
 	_marker = Models.part(root, ring, "#fff4dc", Vector3(0, 0.05, 0))
 	_marker.visible = false
 
-	bubble = Label3D.new()
-	bubble.text = "!"
-	bubble.font_size = 160
-	bubble.outline_size = 40
-	bubble.modulate = Color("c8412f")
-	bubble.pixel_size = 0.006
-	bubble.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	bubble.no_depth_test = true
-	bubble.position = TEYZE_SPOT + Vector3(0, 3.0, 0)
-	root.add_child(bubble)
+	bubble = _make_bubble(Color("c8412f"))
 	refresh_decor()
 	refresh_neighbors()
-
-
-## Açılmış komşuları mahalleye koyar, rica balonlarını günceller.
-func refresh_neighbors() -> void:
-	for n in GameState.neighbors_unlocked():
-		var id: String = n["id"]
-		if not neighbors.has(id):
-			var body := Models.teyze(n["scarf"], n["cardigan"], n["skirt"])
-			body.position = n["home"]
-			body.rotation.y = randf() * TAU
-			body.scale = Vector3.ONE * 1.4
-			_root.add_child(body)
-			var w := Walker.new()
-			w.speed = 1.1  # teyzeler acele etmez
-			body.add_child(w)
-			var b := Label3D.new()
-			b.text = "!"
-			b.font_size = 120
-			b.outline_size = 32
-			b.modulate = Color("2f7fc8")
-			b.pixel_size = 0.006
-			b.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-			b.no_depth_test = true
-			_root.add_child(b)
-			neighbors[id] = {"node": body, "walker": w, "bubble": b, "wait": randf_range(0.5, 3.0), "area": n["area"]}
-		neighbors[id]["bubble"].visible = GameState.favor_available(id)
 	_update_blockers()
 
 
-## Bitişte konuşan komşu yeniden dolaşmaya başlar.
-func end_talk() -> void:
-	_talking = ""
+func _make_bubble(color: Color) -> Label3D:
+	var b := Label3D.new()
+	b.text = "!"
+	b.font_size = 150
+	b.outline_size = 38
+	b.modulate = color
+	b.pixel_size = 0.006
+	b.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	b.no_depth_test = true
+	_root.add_child(b)
+	return b
+
+
+func _make_player(pos: Vector3, rot_y: float) -> void:
+	player = Models.player(GameState.avatar)
+	player.position = pos
+	player.rotation.y = rot_y
+	player.scale = Vector3.ONE * 1.4
+	_root.add_child(player)
+	player_walker = Walker.new()
+	player_walker.speed = 2.6
+	player_walker.bounds = BOUNDS
+	player.add_child(player_walker)
+	player_walker.arrived.connect(_on_player_arrived)
+	if _carry:
+		_carry.reparent(player, false)
+
+
+## Dolaşan bir hayvan ekler. step: adım sıklığı.
+func _add_animal(id: String, node: Node3D, pos: Vector3, area: Rect2, speed: float, wait: float, step: float) -> void:
+	node.position = pos
+	node.rotation.y = randf() * TAU
+	_root.add_child(node)
+	var w := Walker.new()
+	w.speed = speed
+	w.step_rate = step
+	w.bounds = BOUNDS
+	node.add_child(w)
+	wanderers[id] = {"walker": w, "area": area, "wait": randf_range(0.2, wait), "pause": wait}
+	var sounds := {"inek": "moo", "tavuk": "cluck", "kopek": "woof", "sutlu": "meow"}
+	var snd := ""
+	for k in sounds:
+		if id.begins_with(k):
+			snd = sounds[k]
+	targets[id] = {"node": node, "h": 0.9 if id.begins_with("inek") else 0.45, "walker": w, "animal": snd}
 
 
 ## Satın alınmış süsleri mahalleye koyar (yenileri ekler).
@@ -187,10 +264,116 @@ func refresh_decor() -> void:
 			_decor_nodes.erase(id)
 
 
+## Açılmış komşuları evlerinin önüne koyar.
+func refresh_neighbors() -> void:
+	for n in GameState.neighbors_unlocked():
+		var id: String = n["id"]
+		if neighbors.has(id):
+			continue
+		var body := Models.person(n)
+		body.position = n["home"]
+		body.rotation.y = randf_range(-0.6, 0.6)
+		body.scale = Vector3.ONE * 1.4
+		_root.add_child(body)
+		var w := Walker.new()
+		w.speed = 1.1  # teyzeler acele etmez
+		w.bounds = BOUNDS
+		body.add_child(w)
+		w.blockers = _blockers
+		neighbors[id] = body
+		wanderers[id] = {"walker": w, "area": n["area"], "wait": randf_range(0.5, 3.0), "pause": 5.0}
+		targets[id] = {"node": body, "h": 1.7, "walker": w}
+
+
+## bubbles: başında ünlem olacaklar (iş verecekler).
+## goals: şu anki işte gidilecek yerler (altın ok).
+func set_marks(bubbles: Array, goals: Array) -> void:
+	for id in _bubbles.keys():
+		if id not in bubbles:
+			_bubbles[id].queue_free()
+			_bubbles.erase(id)
+	for id in bubbles:
+		if id == "fatma" or not targets.has(id) or _bubbles.has(id):
+			continue
+		_bubbles[id] = _make_bubble(Color("2f7fc8"))
+	bubble.visible = "fatma" in bubbles
+	_goals = goals.filter(func(g): return targets.has(g))
+	while _goal_marks.size() < _goals.size():
+		var cone := Models.part(_root, Models.cyl(0.0, 0.28, 0.5, 12), "#f2c23a", Vector3.ZERO, Vector3(180, 0, 0))
+		var m := Models.mat("#f2c23a").duplicate() as StandardMaterial3D
+		m.emission_enabled = true
+		m.emission = Color("f2c23a")
+		m.emission_energy_multiplier = 0.4
+		m.no_depth_test = true
+		cone.material_override = m
+		_goal_marks.append(cone)
+	for i in _goal_marks.size():
+		_goal_marks[i].visible = i < _goals.size()
+
+
+## Oyuncunun taşıdığı şey: "" (hiç), "cay", "file", "gozluk".
+func set_carry(kind: String) -> void:
+	if _carry:
+		_carry.queue_free()
+		_carry = null
+	if kind == "":
+		return
+	if kind == "gozluk":
+		_carry = Props.glasses()
+		_carry.get_child(_carry.get_child_count() - 1).visible = false
+		_carry.scale = Vector3.ONE * 1.6
+	else:
+		var s := Sprite3D.new()
+		s.texture = UI.tex(kind)
+		s.pixel_size = 0.0028
+		s.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		s.no_depth_test = true
+		_carry = s
+	_carry.position = Vector3(0, 2.05, 0)
+	player.add_child(_carry)
+
+
+func spawn_glasses(pos: Vector3) -> void:
+	remove_glasses()
+	_glasses = Props.glasses()
+	_glasses.position = pos
+	_root.add_child(_glasses)
+	targets["gozluk"] = {"node": _glasses, "h": 0.3, "spot": pos + Vector3(0, 0, 0.7)}
+
+
+func remove_glasses() -> void:
+	if _glasses:
+		_glasses.queue_free()
+		_glasses = null
+	targets.erase("gozluk")
+
+
+## Sütlü'nün kabı dolar, kedi koşup yer, sonra oyuncunun peşine takılır.
+func feed_sutlu() -> void:
+	var bowl := _root.get_node("Kap")
+	bowl.get_node("Mama").visible = true
+	sutlu_follow = true
+	_hop(sutlu)
+
+
+func set_bowl_full(full: bool) -> void:
+	_root.get_node("Kap").get_node("Mama").visible = full
+
+
+func end_talk() -> void:
+	_talking = ""
+
+
 func _place(root: Node3D, n: Node3D, pos: Vector3, rot_y := 0.0) -> void:
 	n.position = pos
 	n.rotation_degrees.y = rot_y
 	root.add_child(n)
+
+
+## Yere konan ve içinden geçilemeyen bir şey.
+func _solid(n: Node3D, pos: Vector3, rot_y: float, block: Rect2) -> void:
+	_place(_root, n, pos, rot_y)
+	_blockers.append(block)
 
 
 func _cobbles(root: Node3D, area: Rect2) -> void:
@@ -219,53 +402,98 @@ func _cobbles(root: Node3D, area: Rect2) -> void:
 	root.add_child(mmi)
 
 
+## Çimenlerdeki çiçekler tek bir çoklu çizimde (telefonda hızlı olsun).
 func _flowers(root: Node3D) -> void:
-	var colors := ["#f4efe6", "#f7cf4a", "#e88ab0"]
-	for i in 60:
-		var p := Vector3(randf_range(-7, 7), 0.05, randf_range(-3, 12))
-		if abs(p.x) < 1.0 or (p.z > -5 and p.z < -2.6):
+	var colors := [Color("f4efe6"), Color("f7cf4a"), Color("e88ab0"), Color("b89be8")]
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	var m := Models.ball(0.07, 6)
+	var mat := StandardMaterial3D.new()
+	mat.vertex_color_use_as_albedo = true
+	m.material = mat
+	mm.mesh = m
+	var spots := []
+	for i in 400:
+		var p := Vector3(randf_range(-14, 14), 0.05, randf_range(-2.6, 16))
+		if absf(p.x) < 1.0 or (p.z > 10.4 and absf(p.x) < 6.8) or FARM.grow(0.3).has_point(Vector2(p.x, p.z)):
 			continue
-		Models.part(root, Models.ball(0.06, 6), colors[i % 3], p)
+		if Vector2(p.x - POND_POS.x, p.z - POND_POS.z).length() < 3.0:
+			continue
+		spots.append(p)
+	mm.instance_count = spots.size()
+	for i in spots.size():
+		mm.set_instance_transform(i, Transform3D(Basis(), spots[i]))
+		mm.set_instance_color(i, colors[i % colors.size()])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	root.add_child(mmi)
 
 
 func _update_blockers() -> void:
-	var list: Array[Rect2] = []
-	for r in BLOCKERS:
-		list.append(r)
+	var list: Array[Rect2] = _blockers.duplicate()
 	for id in DECOR_BLOCKERS:
 		if GameState.decor.has(id):
 			list.append(DECOR_BLOCKERS[id])
 	if player_walker:
 		player_walker.blockers = list
-	for id in neighbors:
-		neighbors[id]["walker"].blockers = list
+	for id in wanderers:
+		wanderers[id]["walker"].blockers = list
 
 
 func _process(delta: float) -> void:
 	_t += delta
 	bubble.position = teyze.position + Vector3(0, 3.0 + sin(_t * 4.0) * 0.08, 0)
+	for id in _bubbles:
+		_bubbles[id].position = targets[id]["node"].position + Vector3(0, 2.9 + sin(_t * 4.0 + 1.0) * 0.08, 0)
+	for i in _goals.size():
+		var g: Dictionary = targets.get(_goals[i], {})
+		if g.is_empty():
+			continue
+		_goal_marks[i].position = g["node"].position + Vector3(0, g["h"] + 0.9 + sin(_t * 5.0) * 0.15, 0)
+		_goal_marks[i].rotation.y = _t * 2.0
 	# kamera oyuncuyu yumuşakça takip eder
-	var want := Vector3(clampf(player.position.x * 0.5, -1.5, 1.5), 0, clampf(-2.2 + (player.position.z - PLAYER_START.z) * 0.5, -3.0, 3.0))
+	var want := Vector3(clampf(player.position.x, -9.5, 9.5), 0, clampf(player.position.z - 0.8, -2.8, 14.0))
 	_cam_focus = _cam_focus.lerp(want, minf(1.0, delta * 2.5))
 	camera.look_at_from_position(_cam_focus + CAM_OFFSET, _cam_focus)
-	_wander(delta)
 	if _marker.visible:
 		_marker.scale = _marker.scale.lerp(Vector3.ONE * 0.4, delta * 3.0)
+	_wander(delta)
+	_swim()
 
 
 func _wander(delta: float) -> void:
-	for id in neighbors:
-		var nb: Dictionary = neighbors[id]
-		var node: Node3D = nb["node"]
-		nb["bubble"].position = node.position + Vector3(0, 2.75 + sin(_t * 4.0 + node.position.x) * 0.08, 0)
-		var w: Walker = nb["walker"]
-		if id == _talking or w.moving:
+	for id in wanderers:
+		var wd: Dictionary = wanderers[id]
+		var w: Walker = wd["walker"]
+		if id == _talking:
 			continue
-		nb["wait"] -= delta
-		if nb["wait"] <= 0.0:
-			var a: Rect2 = nb["area"]
+		if id == "sutlu" and sutlu_follow:
+			# karnı doyan Sütlü oyuncunun peşinden gelir
+			var gap := sutlu.position.distance_to(player.position)
+			if gap > 1.6:
+				w.speed = 3.0
+				w.walk_to(player.position + (sutlu.position - player.position).normalized() * 0.9)
+			elif gap < 1.0 and w.moving:
+				w.stop()
+			continue
+		if w.moving:
+			continue
+		wd["wait"] -= delta
+		if wd["wait"] <= 0.0:
+			var a: Rect2 = wd["area"]
 			w.walk_to(Vector3(randf_range(a.position.x, a.end.x), 0, randf_range(a.position.y, a.end.y)))
-			nb["wait"] = randf_range(2.5, 6.0)  # varınca biraz soluklanır
+			wd["wait"] = randf_range(wd["pause"] * 0.5, wd["pause"] * 1.5)
+
+
+## Ördekler göletin üstünde yavaşça daire çizer.
+func _swim() -> void:
+	for i in _ducks.size():
+		var a := _t * (0.25 + i * 0.07) + i * 2.1
+		var r := 1.0 + i * 0.35
+		var d := _ducks[i]
+		d.position = POND_POS + Vector3(cos(a) * r * 1.25, 0.05 + sin(_t * 3.0 + i) * 0.02, sin(a) * r)
+		d.rotation.y = -a + PI
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -273,69 +501,97 @@ func _gui_input(event: InputEvent) -> void:
 	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
 		return
 	var vp_pos := to_viewport(event.position)
-	# Bir teyzenin ekrandaki yerine yakın her dokunuş sayılır (parmak dostu).
+	# Bir şeyin ekrandaki yerine yakın her dokunuş sayılır (parmak dostu).
 	var best := ""
-	var best_d := 70.0 * pixel_scale
-	var chars := {"": teyze}
-	for id in neighbors:
-		chars[id] = neighbors[id]["node"]
-	for id in chars:
-		var d := vp_pos.distance_to(camera.unproject_position(chars[id].global_position + Vector3(0, 1.2, 0)))
+	var best_d := 58.0 * pixel_scale
+	for id in targets:
+		var t: Dictionary = targets[id]
+		var node: Node3D = t["node"]
+		if not node.is_visible_in_tree():
+			continue
+		var p := camera.unproject_position(node.global_position + Vector3(0, t["h"] * 0.6, 0))
+		var d := vp_pos.distance_to(p)
 		if d < best_d:
 			best_d = d
 			best = id
-	if best_d < 70.0 * pixel_scale:
-		if best == "":
-			teyze_tapped.emit()
+	if best != "":
+		var snd: String = targets[best].get("animal", "-")
+		if snd != "-" and snd != "":
+			_animal_react(best, snd)
 		else:
-			neighbor_tapped.emit(best)
+			tapped.emit(best)
 		return
 	var origin := camera.project_ray_origin(vp_pos)
 	var dir := camera.project_ray_normal(vp_pos)
 	if absf(dir.y) < 0.001:
 		return
 	var hit := origin + dir * (-origin.y / dir.y)
-	_talk_after_walk = false
 	player_walker.walk_to(hit)
 	_marker.position = player_walker.target + Vector3(0, 0.05, 0)
 	_marker.scale = Vector3.ONE
 	_marker.visible = true
 
 
+## Hayvana dokununca sesini çıkarır ve zıplar.
+func _animal_react(id: String, snd: String) -> void:
+	Sfx.play(snd, -2.0, randf_range(0.92, 1.08))
+	var node: Node3D = targets[id]["node"]
+	var w: Walker = targets[id].get("walker")
+	if w:
+		w.face(player.position)
+	_hop(node)
+
+
+func _hop(node: Node3D) -> void:
+	var base := node.position.y
+	var tw := node.create_tween()
+	tw.tween_property(node, "position:y", base + 0.35, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(node, "position:y", base, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
+
 func _on_player_arrived() -> void:
 	_marker.visible = false
-	if _talk_after_walk:
-		_talk_after_walk = false
 
 
-## Oyuncuyu teyzenin yanına yürütür ve varınca döner.
-func walk_to_teyze() -> void:
-	await _walk_to_char(teyze, teyze_walker, TEYZE_SPOT + Vector3(1.2, 0, 0.7))
-
-
-## Oyuncuyu komşunun yanına yürütür; komşu durup bekler.
-func walk_to_neighbor(id: String) -> void:
-	var nb: Dictionary = neighbors[id]
-	var node: Node3D = nb["node"]
-	_talking = id
-	nb["walker"].stop()
-	var dir := player.position - node.position
-	dir.y = 0
-	dir = dir.normalized() if dir.length() > 0.01 else Vector3(1, 0, 0)
-	await _walk_to_char(node, nb["walker"], node.position + dir * 1.3)
-
-
-func _walk_to_char(other: Node3D, other_walker: Walker, spot: Vector3) -> void:
-	_talk_after_walk = true
+## Oyuncuyu bir kişinin ya da yerin yanına yürütür; kişi durup ona döner.
+func walk_to_target(id: String) -> void:
+	var t: Dictionary = targets.get(id, {})
+	if t.is_empty():
+		return
+	var node: Node3D = t["node"]
+	var w: Walker = t.get("walker")
+	if w:
+		_talking = id
+		w.stop()
+	var spot: Vector3
+	if t.has("spot"):
+		spot = t["spot"]
+	else:
+		var dir := player.position - node.position
+		dir.y = 0
+		dir = dir.normalized() if dir.length() > 0.01 else Vector3(0, 0, 1)
+		spot = node.position + dir * (0.9 if node == sutlu else 1.3)
 	_marker.visible = false
 	if player.position.distance_to(spot) > 0.15:
 		player_walker.walk_to(spot)
 		await player_walker.arrived
-	player_walker.face(other.position)
-	other_walker.face(player.position)
+	player_walker.face(node.position)
+	if w:
+		w.face(player.position)
 
 
 func reset_player() -> void:
 	player_walker.stop()
 	player.position = PLAYER_START
 	player.rotation_degrees.y = 0
+
+
+## Karakter değişince oyuncuyu yeni görünüşüyle aynı yerde yeniden kurar.
+func set_player_look(_look: Dictionary) -> void:
+	var pos := player.position
+	var rot := player.rotation.y
+	if _carry:
+		_carry.reparent(_root, false)
+	player.queue_free()
+	_make_player(pos, rot)
+	_update_blockers()

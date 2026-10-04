@@ -34,6 +34,15 @@ static func make_theme() -> Theme:
 	return t
 
 
+## İkonun küçültülmüş kopyası (kendi boyutunda çizilen yerler için, ör. kaydırıcı tutamağı).
+static func tex_small(name: String, px: int) -> ImageTexture:
+	var img := tex(name).get_image()
+	if img.is_compressed():
+		img.decompress()
+	img.resize(px, px, Image.INTERPOLATE_LANCZOS)
+	return ImageTexture.create_from_image(img)
+
+
 static func box(bg: Color, border: Color, width := 3, margin := 12) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
 	s.bg_color = bg

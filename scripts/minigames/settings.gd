@@ -2,6 +2,7 @@ extends Minigame
 ## Ayarlar: yazı boyutu, ses, müzik, rehber, sıfırlama.
 
 signal show_tutorial
+signal edit_avatar
 
 var reset_button: Button
 var reset_armed := false
@@ -14,17 +15,61 @@ func build() -> void:
 	box.add_theme_constant_override("separation", 14)
 	content.add_child(box)
 
-	box.add_child(_row("Yazı boyutu", [["Normal", 1.0], ["Büyük", 1.2]], "text",
-		func(v): GameState.set_setting("text", v); get_tree().reload_current_scene()))
+	box.add_child(_text_slider())
 	box.add_child(_row("Ses efektleri", [["Açık", true], ["Kapalı", false]], "sound",
 		func(v): GameState.set_setting("sound", v); Sfx.sound_on = v))
 	box.add_child(_row("Müzik", [["Açık", true], ["Kapalı", false]], "music",
 		func(v): GameState.set_setting("music", v); Sfx.set_music(v)))
 
+	box.add_child(UI.button("Karakterini değiştir", func(): edit_avatar.emit()))
 	box.add_child(UI.button("Rehberi tekrar göster", func(): show_tutorial.emit()))
 	reset_button = UI.button("Oyunu sıfırla", _reset, 20)
 	reset_button.add_theme_color_override("font_color", UI.ACCENT)
 	box.add_child(reset_button)
+
+
+## Yazı boyutu kaydırma çubuğu: sürüklerken örnek yazı büyür, bırakınca uygulanır.
+func _text_slider() -> Control:
+	var p := PanelContainer.new()
+	p.add_theme_stylebox_override("panel", UI.box(UI.CREAM, UI.INK, 3, 8))
+	var v := VBoxContainer.new()
+	var top := HBoxContainer.new()
+	var l := UI.label("Yazı boyutu", 20, UI.ACCENT)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	l.size_flags_horizontal = SIZE_EXPAND_FILL
+	top.add_child(l)
+	var pct := UI.label("", 18)
+	top.add_child(pct)
+	v.add_child(top)
+	var sample := Label.new()
+	sample.text = "Aa  Merhaba evladım"
+	sample.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sample.custom_minimum_size.y = 40
+	v.add_child(sample)
+	var s := HSlider.new()
+	s.min_value = 0.9
+	s.max_value = 1.4
+	s.step = 0.05
+	s.value = GameState.settings["text"]
+	s.custom_minimum_size.y = 44
+	var knob := UI.tex_small("kurabiye", 36)
+	s.add_theme_icon_override("grabber", knob)
+	s.add_theme_icon_override("grabber_highlight", knob)
+	s.add_theme_stylebox_override("slider", UI.box(UI.CREAM_DARK, UI.INK, 2, 5))
+	s.add_theme_stylebox_override("grabber_area", UI.box(Color("f2c23a"), UI.INK, 2, 5))
+	s.add_theme_stylebox_override("grabber_area_highlight", UI.box(Color("f2c23a"), UI.INK, 2, 5))
+	var show := func(val: float):
+		pct.text = "%%%d" % roundi(val * 100)
+		sample.add_theme_font_size_override("font_size", int(20 * val))
+	show.call(s.value)
+	s.value_changed.connect(show)
+	s.drag_ended.connect(func(changed: bool):
+		if changed and not is_equal_approx(s.value, GameState.settings["text"]):
+			GameState.set_setting("text", s.value)
+			get_tree().reload_current_scene())
+	v.add_child(s)
+	p.add_child(v)
+	return p
 
 
 ## Bir başlık ve yan yana seçenek butonları; seçili olan yeşil çerçeveli.

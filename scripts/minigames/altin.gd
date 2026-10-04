@@ -51,7 +51,7 @@ func _show_list() -> void:
 		h.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 		h.offset_left = 8
 		h.mouse_filter = MOUSE_FILTER_IGNORE
-		h.add_child(Portrait.new(Vector2(64, 70), false, g["scarf"], g["cardigan"]))
+		h.add_child(Portrait.new(Vector2(64, 70), false, g))
 		var name := UI.label(g["name"], 22)
 		name.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		name.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -73,7 +73,7 @@ func _visit(i: int) -> void:
 	list_box.visible = false
 	visit_box.visible = true
 	_clear(visit_box)
-	var p := Portrait.new(Vector2(110, 100), false, g["scarf"], g["cardigan"])
+	var p := Portrait.new(Vector2(110, 100), false, g)
 	p.size_flags_horizontal = SIZE_SHRINK_CENTER
 	visit_box.add_child(p)
 	say("%s: Hoş geldin evladım! Önce bir ikram, sonra altın." % g["name"])

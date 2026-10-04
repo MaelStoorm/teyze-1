@@ -38,6 +38,11 @@ var friendship := {}
 var favors_done := {}
 ## Komşu ricalarının bugünkü içerik tohumları: id -> seed.
 var favor_seeds := {}
+## Oyuncunun karakteri (Avatar.DEFAULT anahtarları). Boşsa henüz oluşturulmadı.
+var avatar := {}
+## Sütlü'nün son beslendiği gün ve kaç gün beslendiği.
+var sutlu_fed := ""
+var sutlu_love := 0
 
 
 func _ready() -> void:
@@ -48,6 +53,18 @@ func _ready() -> void:
 		streak = 1
 		save_game()
 	check_new_day()
+
+
+func set_avatar(look: Dictionary) -> void:
+	avatar = look.duplicate()
+	save_game()
+	changed.emit()
+
+
+## Teyzelerin sana seslenişi: adın varsa adın, yoksa "evladım".
+func call_name() -> String:
+	var n: String = avatar.get("name", "")
+	return n if n != "" else "evladım"
 
 
 func set_setting(key: String, value) -> void:
@@ -112,6 +129,21 @@ func _xp_for(lv: int) -> int:
 func unlocked_types() -> Array:
 	var lv := level()
 	return UNLOCKS.keys().filter(func(t): return UNLOCKS[t] <= lv)
+
+
+# --- Sütlü -----------------------------------------------------------------
+
+func sutlu_fed_today() -> bool:
+	return sutlu_fed == today()
+
+
+func feed_sutlu() -> int:
+	if not sutlu_fed_today():
+		sutlu_fed = today()
+		sutlu_love += 1
+		save_game()
+		changed.emit()
+	return sutlu_love
 
 
 # --- komşular ----------------------------------------------------------------
@@ -282,6 +314,9 @@ func save_game() -> void:
 	cfg.set_value("gun", "tarih", errands_date)
 	cfg.set_value("oyuncu", "seri", streak)
 	cfg.set_value("ayarlar", "hepsi", settings)
+	cfg.set_value("oyuncu", "karakter", avatar)
+	cfg.set_value("sutlu", "beslendi", sutlu_fed)
+	cfg.set_value("sutlu", "sevgi", sutlu_love)
 	cfg.set_value("komsular", "dostluk", friendship)
 	cfg.set_value("komsular", "ricalar", favors_done)
 	cfg.set_value("komsular", "tohumlar", favor_seeds)
@@ -303,6 +338,9 @@ func load_game() -> void:
 	errands_date = cfg.get_value("gun", "tarih", "")
 	streak = cfg.get_value("oyuncu", "seri", 0)
 	settings.merge(cfg.get_value("ayarlar", "hepsi", {}), true)
+	avatar = cfg.get_value("oyuncu", "karakter", {})
+	sutlu_fed = cfg.get_value("sutlu", "beslendi", "")
+	sutlu_love = cfg.get_value("sutlu", "sevgi", 0)
 	friendship = cfg.get_value("komsular", "dostluk", {})
 	favors_done = cfg.get_value("komsular", "ricalar", {})
 	favor_seeds = cfg.get_value("komsular", "tohumlar", {})
@@ -315,6 +353,9 @@ func reset() -> void:
 	perks = {}
 	decor = {}
 	friendship = {}
+	avatar = {}
+	sutlu_fed = ""
+	sutlu_love = 0
 	fresh_unlocks = []
 	streak = 1
 	daily_gift = 0
