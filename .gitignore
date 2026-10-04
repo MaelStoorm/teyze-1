@@ -2,3 +2,4 @@
 /android/
 *.apk
 *.aab
+build/
