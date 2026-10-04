@@ -411,9 +411,33 @@ def music():
     save("muzik", out, 0.6)
 
 
+# --- konuşma mırıltısı -------------------------------------------------------------
+
+## Ünlü formantları (F1, F2, F3) Hz: tatlı, kadınsı bir ses için.
+VOWELS = {"a": (850, 1300, 2800), "e": (560, 2000, 2800), "i": (360, 2500, 3100),
+          "o": (520, 950, 2600), "u": (380, 850, 2500)}
+
+
+def voices():
+    """Teyzelerin konuşurken çıkardığı kısa, anlamsız heceler (Animal Crossing
+    gibi). Oyun her heceyi konuşanın perdesinde çalar."""
+    for v, (f1, f2, f3) in VOWELS.items():
+        sec = 0.09
+        n = int(SR * sec)
+        f0 = np.linspace(255, 232, n) * (1 + 0.012 * np.sin(np.arange(n) / SR * 2 * np.pi * 6))
+        x = voice(f0, [(f1, 110, 1.0), (f2, 160, 0.55), (f3, 220, 0.18)], tilt=0.18, nh=24)
+        x = lowpass(x * env(n, 0.01, release=0.035), 3800)
+        save("ses_" + v, x, 0.4)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
+    import sys
+    if sys.argv[1:] == ["voices"]:
+        voices()
+        return
     sfx()
+    voices()
     music()
     print("sounds ->", OUT)
     for p in sorted(OUT.glob("*.wav")):

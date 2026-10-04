@@ -344,6 +344,11 @@ func _drop_task() -> void:
 
 func _build_dialog() -> void:
 	dialog = PanelContainer.new()
+	dialog.gui_input.connect(func(e: InputEvent):
+		# yazı akarken kutuya dokunmak hepsini bir anda gösterir
+		if e is InputEventMouseButton and e.pressed and _type_tw and _type_tw.is_running():
+			_type_tw.kill()
+			dialog_text.visible_characters = -1)
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 12)
 	var face := Portrait.new(Vector2(92, 104))
@@ -374,6 +379,38 @@ func _build_dialog() -> void:
 	dialog.add_child(top)
 	dialog.visible = false
 	overlay.add_child(dialog)
+
+
+## Konuşanların ses perdesi (mırıltı). Listede olmayan (Sütlü) mırıldanmaz.
+const VOICE := {"fatma": 1.0, "filiz": 1.12, "miyase": 1.24, "hulya": 0.92, "ahmet": 0.6, "nermin": 1.05,
+	"stall_manav": 0.72, "stall_firin": 0.8, "stall_sarkuteri": 0.95}
+const VOWEL_SOUND := {"a": "ses_a", "ı": "ses_i", "e": "ses_e", "i": "ses_i", "o": "ses_o", "ö": "ses_o", "u": "ses_u", "ü": "ses_u"}
+var _type_tw: Tween
+var _voiced := 0
+
+
+## Yazıyı harf harf açar; ünlülerde konuşanın sesiyle kısa bir hece çıkar.
+func _type_dialog(who: String) -> void:
+	if _type_tw:
+		_type_tw.kill()
+	var text := dialog_text.text
+	dialog_text.visible_characters = 0
+	_voiced = 0
+	var pitch: float = VOICE.get(who, 0.0)
+	var dur := clampf(text.length() / 42.0, 0.25, 3.5)
+	_type_tw = create_tween()
+	_type_tw.tween_method(func(n: int):
+		dialog_text.visible_characters = n
+		if pitch > 0.0 and n - _voiced >= 3 and n <= text.length():
+			# son birkaç harfteki ünlünün hecesini çal
+			for k in range(n - 1, maxi(n - 4, 0) - 1, -1):
+				var ch := text[k].to_lower()
+				if VOWEL_SOUND.has(ch):
+					Sfx.play(VOWEL_SOUND[ch], -10.0, pitch * randf_range(0.94, 1.08))
+					_voiced = n
+					break,
+		0, text.length(), dur)
+	_type_tw.tween_callback(func(): dialog_text.visible_characters = -1)
 
 
 ## Konuşma kutusunu yazıya göre boylandırır; ekrana sığmazsa kaydırılır.
@@ -422,6 +459,7 @@ func _say(text: String, buttons: Array, who := "") -> void:
 	bottom_bar.visible = false
 	joystick.visible = false
 	_fit_dialog()
+	_type_dialog(who)
 	top_row.visible = tutorial_step >= 0 and TUTORIAL[tutorial_step][1] == "hud"
 
 
@@ -1056,5 +1094,8 @@ func _tp(pos: Vector3) -> void:
 
 func _shot(dir: String, name: String) -> void:
 	await get_tree().create_timer(0.6).timeout
+	if _type_tw and _type_tw.is_running():
+		_type_tw.kill()
+		dialog_text.visible_characters = -1
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png("%s/%s.png" % [dir, name])
