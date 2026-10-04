@@ -24,7 +24,7 @@ func build() -> void:
 		b.texture_normal = UI.tex(SPOTS[i][0])
 		b.ignore_texture_size = true
 		b.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-		b.size = b.texture_normal.get_size() * UI.PX
+		b.size = b.texture_normal.get_size() * 0.85
 		b.position = SPOTS[i][1] - b.size / 2
 		b.pressed.connect(_tap.bind(i, b))
 		add_child(b)
@@ -35,7 +35,7 @@ func _tap(i: int, b: TextureButton) -> void:
 		return
 	if i == cat_spot:
 		found = true
-		var cat := UI.sprite("cat")
+		var cat := UI.sprite("cat", 70)
 		add_child(cat)
 		cat.position = b.position + Vector2(b.size.x / 2 - cat.size.x / 2, -20)
 		var tw := cat.create_tween()

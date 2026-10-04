@@ -1,7 +1,6 @@
 class_name UI
 ## Ortak görünüm: büyük yazı, büyük butonlar, sıcak renkler.
 
-const PX := 4  # her sprite pikseli ekranda 4x4
 const INK := Color("3b2a1e")
 const CREAM := Color("fff4dc")
 const CREAM_DARK := Color("f0dcb4")
@@ -13,7 +12,7 @@ static var _textures := {}
 
 static func tex(name: String) -> Texture2D:
 	if not _textures.has(name):
-		_textures[name] = load("res://assets/sprites/%s.png" % name)
+		_textures[name] = load("res://assets/icons/%s.png" % name)
 	return _textures[name]
 
 
@@ -45,11 +44,12 @@ static func box(bg: Color, border: Color, width := 3, margin := 12) -> StyleBoxF
 	return s
 
 
-## Ekranda sabit boyutlu, keskin bir sprite.
-static func sprite(name: String, scale := PX) -> TextureRect:
+## Verilen yükseklikte (piksel) bir ikon; en-boy oranı korunur.
+static func sprite(name: String, height := 56.0) -> TextureRect:
 	var r := TextureRect.new()
 	r.texture = tex(name)
-	r.custom_minimum_size = r.texture.get_size() * scale
+	var ts := r.texture.get_size()
+	r.custom_minimum_size = Vector2(ts.x * height / ts.y, height)
 	r.size = r.custom_minimum_size
 	r.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -90,7 +90,7 @@ static func icon_button(icon: String, caption: String, on_press: Callable) -> Bu
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_theme_constant_override("separation", 2)
-	var s := sprite(icon)
+	var s := sprite(icon, 54)
 	s.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(s)
 	var l := label(caption, 18)
