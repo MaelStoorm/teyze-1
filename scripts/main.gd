@@ -887,7 +887,8 @@ func _process(delta: float) -> void:
 	_world_check -= delta
 	if _world_check <= 0.0:
 		_world_check = 3.0
-		if game == null and world.visible and tutorial_step < 0 and GameState.settings["tutorial"]:
+		var splash_on := get_children().any(func(c): return c is Splash)  # açılış ekranının üstüne çıkmasın
+		if game == null and world.visible and not splash_on and tutorial_step < 0 and GameState.settings["tutorial"]:
 			var ph := Mahalle3D.phase_now()
 			var got := false
 			if ph == "sabah":
@@ -1183,11 +1184,11 @@ func _screenshot_tour(dir: String) -> void:
 	GameState.streak = 3
 	_show_daily_gift_test(5)
 	await _shot(dir, "1_takvim")
-	get_child(get_child_count() - 1).call("_close")
+	get_children().filter(func(c): return c is Takvim)[-1].call("_close")
 	GameState.streak = 7
 	_show_daily_gift_test(12, "kilim")
 	await _shot(dir, "1_takvim_7")
-	get_child(get_child_count() - 1).call("_close")
+	get_children().filter(func(c): return c is Takvim)[-1].call("_close")
 	GameState.streak = 1
 	tutorial_step = 4
 	_tutorial(TUTORIAL.size())
