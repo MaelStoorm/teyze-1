@@ -13,6 +13,14 @@ const BOUNDS := Rect2(-19.5, -5.3, 39.0, 30.0)
 const STALL_POS := {"manav": Vector3(-4.2, 0, 12.2), "firin": Vector3(0.0, 0, 12.2), "sarkuteri": Vector3(4.2, 0, 12.2)}
 const KAHVE_POS := Vector3(-8.5, 0, -0.6)
 const FIRIN_POS := Vector3(14.6, 0, -6.6)
+const DUGUN_POS := Vector3(9.0, 0, 13.2)
+## Kayıp yüzüğün düşebileceği yerler (2. bölüm): [yer adı, konum].
+const YUZUK_YERLERI := [
+	["göl kenarında", Vector3(-6.7, 0, 8.6)],
+	["bostanın yanında", Vector3(1.4, 0, 5.1)],
+	["kahveye giden yolda", Vector3(-3.4, 0, 1.3)],
+	["ayçiçeklerinin dibinde", Vector3(-13.4, 0, 6.2)],
+]
 const FARM := Rect2(6.5, 1.5, 6.5, 7.0)
 const POND_POS := Vector3(-9.5, 0, 7.5)
 const BOWL_POS := Vector3(-0.9, 0, -5.0)
@@ -78,6 +86,9 @@ var _firin: Node3D
 var _firinci: Node3D
 var _smoke: CPUParticles3D
 var _story_mark: Label3D
+var _dugun: Node3D
+var _dugun_blocked := false
+var _ring: Node3D
 var _story_id := ""
 var _driving := false
 var _walk_id := 0
@@ -160,7 +171,7 @@ func _build() -> void:
 		root.add_child(g)
 		_glows.append(g)
 	for spec in [[Vector3(4.3, 0, -1.0), 0], [Vector3(-4.4, 0, 1.0), 40], [Vector3(4.6, 0, 6.0), 80], [Vector3(-4.2, 0, 7.5), 10],
-			[Vector3(-12.6, 0, 1.2), 20], [Vector3(-12.2, 0, 12.8), 50], [Vector3(9.2, 0, 12.6), 70], [Vector3(12.6, 0, 11.0), 0],
+			[Vector3(-12.6, 0, 1.2), 20], [Vector3(-12.2, 0, 12.8), 50], [Vector3(12.0, 0, 15.2), 70], [Vector3(12.6, 0, 11.0), 0],
 			[Vector3(-6.4, 0, -1.6), 30], [Vector3(12.8, 0, -1.8), 60], [Vector3(-9.0, 0, 13.6), 15]]:
 		var p: Vector3 = spec[0]
 		_solid(Models.tree(), p, spec[1], Rect2(p.x - 0.7, p.z - 0.7, 1.4, 1.4))
@@ -192,6 +203,15 @@ func _build() -> void:
 	for x in [-9.8, -7.2]:
 		_blockers.append(Rect2(x - 0.8, 1.9, 1.6, 0.8))  # çay masaları
 	_blockers.append(Rect2(-11.3, 0.7, 0.8, 0.8))  # semaver
+
+	# düğün meydanı: 2. bölümde kurulur
+	_dugun = Props.dugun()
+	_dugun.position = DUGUN_POS
+	_dugun.visible = false
+	root.add_child(_dugun)
+	for b in _dugun.get_node("Ampuller").get_children():
+		_glows.append(b)
+	targets["dugun"] = {"node": _dugun, "h": 2.4, "mark": Vector3(-1.2, 2.0, 1.9), "spot": DUGUN_POS + Vector3(0, 0, 2.3)}
 
 	# Mehmet Usta'nın fırını: hikayede kapalı başlar
 	_firin = Props.firin()
@@ -320,10 +340,12 @@ func _optimize() -> void:
 	keep.append(_firin.get_node("Kapali"))
 	keep.append(_firin.get_node("Acik"))
 	keep.append(_firinci)
+	keep.append(_dugun)
 	Bake.merge_static(_root, keep)
 	for k in ["Kapali", "Acik"]:
 		Bake.merge_rig(_firin.get_node(k))
 	Bake.merge_rig(_firinci)
+	Bake.merge_rig(_dugun.get_node("Gelin"))
 	for n in moving:
 		Bake.merge_rig(n)
 	for n in _decor_nodes.values():
@@ -723,6 +745,50 @@ func set_firin_open(open: bool, animate := false) -> void:
 		var tw := _firin.create_tween()
 		_firin.scale = Vector3.ONE * 0.94
 		tw.tween_property(_firin, "scale", Vector3.ONE, 0.5).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+
+
+## Düğün meydanı: kurulduysa ışıklar ve masalar durur, gelinle damat
+## yalnız düğün günü oradadır.
+func set_dugun(built: bool, couple := false) -> void:
+	_dugun.visible = built
+	_dugun.get_node("Gelin").visible = couple
+	if built and not _dugun_blocked:
+		_dugun_blocked = true
+		for z in [-0.75, 0.75]:
+			_blockers.append(Rect2(DUGUN_POS.x - 1.05, DUGUN_POS.z + z - 0.45, 2.1, 0.9))
+		_blockers.append(Rect2(DUGUN_POS.x + 0.9, DUGUN_POS.z - 1.55, 0.7, 0.7))
+
+
+## Hikayede aranan şey yere konur: "bul" hedefi olur ama altın ok çıkmaz.
+func spawn_find(pos: Vector3) -> void:
+	remove_find()
+	_ring = Props.yuzuk()
+	_ring.position = pos
+	_root.add_child(_ring)
+	var sparkle := CPUParticles3D.new()  # uzaktan fark edilsin diye parıltı
+	sparkle.mesh = Models.ball(0.07, 4)
+	var m := Models.mat("#fff6c0").duplicate() as StandardMaterial3D
+	m.emission_enabled = true
+	m.emission = Color("fff6c0")
+	m.emission_energy_multiplier = 2.0
+	sparkle.material_override = m
+	sparkle.amount = 10
+	sparkle.lifetime = 1.4
+	sparkle.direction = Vector3.UP
+	sparkle.spread = 40.0
+	sparkle.initial_velocity_min = 0.5
+	sparkle.initial_velocity_max = 0.9
+	sparkle.gravity = Vector3.ZERO
+	sparkle.position = Vector3(0, 0.15, 0)
+	_ring.add_child(sparkle)
+	targets["bul"] = {"node": _ring, "h": 0.3, "spot": pos + Vector3(0, 0, 0.7)}
+
+
+func remove_find() -> void:
+	if _ring:
+		_ring.queue_free()
+		_ring = null
+	targets.erase("bul")
 
 
 ## Oyuncunun taşıdığı şey: "" (hiç), "cay", "file", "gozluk".

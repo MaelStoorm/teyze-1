@@ -511,6 +511,38 @@ def _(i):
     i.shape(R(88, 14, 102, 40, 3), "#8a5a3b", gloss=False)
 
 
+@icon("kina")
+def _(i):  # kına tepsisi: bakır tepsi, ortada kına kasesi, mumlar
+    i.shape(E(6, 60, 122, 116), "#c98a3a")
+    i.shape(E(16, 66, 112, 108), "#e0a85a", outline=False, gloss=False)
+    i.shape(E(40, 56, 88, 96), "#a8452e")
+    i.shape(E(48, 62, 80, 82), "#7a2e1e", outline=False, gloss=False)
+    for x in (22, 106):
+        i.shape(R(x - 6, 40, x + 6, 80, 3), "#f8f2e6")
+        i.shape(E(x - 5, 26, x + 5, 42), "#f2c23a", outline=False)
+
+
+@icon("yuzuk")
+def _(i):
+    def ring(d, s):
+        d.ellipse((s(20), s(40), s(108), s(120)), fill=255)
+        d.ellipse((s(36), s(56), s(92), s(104)), fill=0)
+    i.shape(ring, "#e8b63a")
+    i.shape(P((48, 44), (64, 14), (80, 44), (64, 56)), "#bfe4f2")
+    i.dot(58, 32, 4, "#ffffff")
+
+
+@icon("pasta")
+def _(i):  # düğün pastası: iki kat, kremalı, üstte kiraz
+    i.shape(R(14, 72, 114, 118, 8), "#f8f2e6")
+    i.shape(R(32, 36, 96, 76, 8), "#fbe9ee")
+    for x in range(22, 112, 16):
+        i.dot(x, 76, 6, "#e88aa6")
+    for x in range(40, 96, 14):
+        i.dot(x, 40, 5, "#e88aa6")
+    i.dot(64, 26, 10, "#c8412f")
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     import sys

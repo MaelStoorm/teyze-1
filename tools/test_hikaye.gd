@@ -6,7 +6,7 @@ var gs
 
 
 func _initialize() -> void:
-	create_timer(90).timeout.connect(func(): print("ZAMAN AŞIMI"); quit(1))
+	create_timer(150).timeout.connect(func(): print("ZAMAN AŞIMI"); quit(1))
 	main = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
 	await process_frame
@@ -103,7 +103,7 @@ func _initialize() -> void:
 	await _press_until_closed()
 	assert(gs.chapter_done("firin") and gs.album.has("firin"))
 	assert(gs.kurabiye == k0 + 30)
-	assert(main._story_who() == "" and main._story_goal() == "")
+	assert(main._story_who() == "filiz", "1. bölüm bitince 2. bölüm başlar")
 	# her sabah simit: bir komşuya götür, kalp kazan
 	main._interact("firin")
 	await _press(0)  # Simidi al
@@ -121,7 +121,77 @@ func _initialize() -> void:
 	gs.load_game()
 	main._refresh()
 	assert(gs.chapter_done("firin") and main.world._firin.get_node("Acik").visible)
-	print("TAMAM: 1. bölüm (Fırının Işığı) baştan sona oynandı")
+	print("1. bölüm tamam")
+	# --- 2. bölüm: Mahallede Düğün ---
+	assert(main._story_who() == "filiz" and main._story_goal().begins_with("Bölüm 2"))
+	assert(not main.world._dugun.visible, "düğün meydanı başta yok")
+	main._interact("filiz")
+	await _press_until_closed()
+	assert(main._story_who() == "fatma")
+	main._interact("fatma")
+	await _press_until_closed()
+	assert(main._story_who() == "miyase")
+	main._interact("miyase")
+	await _press(0)
+	await _press(0)  # Örelim
+	assert(main.game != null)
+	main.game.finished.emit(true)
+	await _press_until_closed()  # tepsiyi al
+	assert(main._task_goals() == ["filiz"])
+	main._interact("filiz")
+	await _press(0)
+	var yer: Array = main._yuzuk_yer()
+	assert(main.dialog_text.text.contains(yer[0]), "Filiz yüzüğün yerini söylemeli")
+	await _press(0)  # Ararım
+	assert(main._task_goals() == ["bul"] and main.world.targets.has("bul"))
+	assert(not ("bul" in main.world._goals), "aranan şeyin üstünde ok olmaz")
+	assert(main.task_label.text.contains(yer[0]))
+	assert(main.world._ring.position.distance_to(yer[1]) < 0.01)
+	main._interact("bul")
+	assert(main.dialog.visible and gs.album.has("yuzuk"))
+	await _press_until_closed()
+	assert(not main.world.targets.has("bul") and main._task_goals() == ["filiz"])
+	main._interact("filiz")
+	await _press_until_closed()
+	assert(main._story_who() == "ahmet", "sırada davul: %s" % main._story_who())
+	main._interact("ahmet")
+	await _press(0)
+	await _press(0)  # tavla
+	main.game.finished.emit(false)  # yenilirse hikaye ilerlemez
+	await _press_until_closed()
+	assert(main._story_who() == "ahmet")
+	main._interact("ahmet")
+	await _press(0)
+	await _press(0)
+	main.game.finished.emit(true)
+	await _press_until_closed()
+	assert(main._story_who() == "fatma")
+	gs.kurabiye = 40
+	main._interact("fatma")
+	await _press(0)  # 30 kurabiye ver
+	await _press_until_closed()
+	assert(gs.kurabiye == 10 and main._story_who() == "firin")
+	main._interact("firin")
+	await _press_until_closed()  # pastayı al
+	assert(main._task_goals() == ["filiz"])
+	main._interact("filiz")
+	await _press_until_closed()  # Düğüne!
+	assert(main.world._dugun.visible and main.world._dugun.get_node("Gelin").visible, "meydan kuruldu")
+	assert(main._story_who() == "dugun")
+	var k1: int = gs.kurabiye
+	main._interact("dugun")
+	await _press_until_closed()
+	assert(gs.chapter_done("dugun") and gs.album.has("dugun") and gs.kurabiye == k1 + 40)
+	assert(main._story_goal() == "" and main._story_who() == "")
+	gs.save_game()
+	gs.load_game()
+	main._refresh()
+	assert(main.world._dugun.visible and main.world._dugun.get_node("Gelin").visible, "düğün günü gelin damat orada")
+	gs.story_flags["dugun_gunu"] = "2000-01-01"
+	main._refresh()
+	assert(main.world._dugun.visible and not main.world._dugun.get_node("Gelin").visible, "ertesi gün ışıklar kalır")
+	assert(load("res://scripts/hikaye.gd").after_lines("ahmet").size() == 4)
+	print("TAMAM: 1. bölüm (Fırının Işığı) ve 2. bölüm (Mahallede Düğün) baştan sona oynandı")
 	quit(0)
 
 

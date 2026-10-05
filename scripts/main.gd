@@ -240,6 +240,9 @@ func _refresh() -> void:
 	world.refresh_neighbors()
 	world.refresh_bostan()
 	world.set_firin_open(GameState.chapter_done("firin"))
+	var at_dugun: bool = GameState.story_now().get("who", "") == "dugun"
+	var dugun_day: bool = GameState.story_flags.get("dugun_gunu", "") == GameState.today()
+	world.set_dugun(GameState.chapter_done("dugun") or at_dugun, at_dugun or dugun_day)
 	world.set_bowl_full(GameState.sutlu_fed_today())
 	world.sutlu_follow = GameState.sutlu_fed_today()
 	friends_button.visible = not GameState.neighbors_unlocked().is_empty()
@@ -275,6 +278,7 @@ func _refresh_task() -> void:
 		bubbles = ["fatma"]
 		goals = ["fatma"]
 		story_who = ""
+	goals.erase("bul")  # aranan şeyin yerini ok göstermez, parıltıdan bulunur
 	world.set_marks(bubbles, goals if game == null else [])
 	world.set_story_mark(story_who if game == null else "")
 	var goal := _story_goal() if task.is_empty() and tutorial_step < 0 else ""
@@ -342,6 +346,8 @@ func _task_text() -> String:
 		"find":
 			return "%s'nin gözlüğünü mahallede ara." % who
 		"story":
+			if task.has("find"):
+				return "Yüzüğü ara: %s. Parıltıya dikkat et!" % _yuzuk_yer()[0]
 			var left: Array = task["targets"].filter(func(t): return t not in task["served"])
 			return "%s götür: %s" % [task["what"], ", ".join(left.map(func(t): return _who_name(t)))]
 	return ""
@@ -487,6 +493,9 @@ func _say(text: String, buttons: Array, who := "") -> void:
 			var st: Dictionary = Props.STALLS[who.substr(6)]
 			dialog_name.text = st["seller"]
 			dialog_face.set_look(st["look"])
+		elif who == "oyuncu":
+			dialog_name.text = GameState.call_name()
+			dialog_face.set_look(GameState.avatar)
 		elif who == "sutlu":
 			dialog_name.text = "Sütlü"
 			dialog_face.set_look({"animal": "cat"})
@@ -890,12 +899,19 @@ func _story_goal() -> String:
 
 ## Dünyadaki hedefin konuşma kutusundaki konuşanı.
 func _story_speaker(who: String) -> String:
-	return "stall_firin" if who == "firin" else who
+	match who:
+		"firin":
+			return "stall_firin"
+		"dugun":
+			return "filiz"
+	return who
 
 
 func _who_name(id: String) -> String:
 	if id == "stall_firin" or id == "firin":
 		return "Fırıncı Mehmet"
+	if id == "dugun":
+		return "Düğün meydanı"
 	return Neighbors.name_of(id)
 
 
@@ -911,6 +927,8 @@ func _story_talk(i := 0) -> void:
 		return
 	var line: String = lines[i]
 	var act: Dictionary = st["do"]
+	if act.has("find"):
+		line = line.replace("{yer}", _yuzuk_yer()[0])
 	if act.has("choice"):
 		var btns := []
 		for ch in act["choice"]:
@@ -929,6 +947,10 @@ func _story_talk(i := 0) -> void:
 		_say(line, [[st["btn"], _story_carry.bind(act)]], who)
 	elif act.has("finale"):
 		_say(line, [[st["btn"], _story_finale.bind(0)]], who)
+	elif act.has("find"):
+		_say(line, [[st["btn"], _story_find.bind(act)]], who)
+	elif act.has("build"):
+		_say(line, [[st["btn"], _story_build]], who)
 	else:
 		_say(line, [[st["btn"], _story_next.bind(st["who"])]], who)
 
@@ -977,15 +999,49 @@ func _story_carry(act: Dictionary) -> void:
 	else:
 		icon = act["carry"]
 		targets = act["deliver"]
-	var what: String = {"odun": "Odunları", "defter": "Tarifi", "davetiye": "Davetiyeleri", "simit": "Simidi"}.get(icon, "Bunu")
+	var what: String = {"odun": "Odunları", "defter": "Tarifi", "davetiye": "Davetiyeleri", "simit": "Simidi", "kina": "Kına tepsisini", "pasta": "Pastayı"}.get(icon, "Bunu")
 	task = {"kind": "story", "giver": "", "info": {}, "targets": targets, "served": [], "what": what}
 	world.set_carry(icon)
 	Sfx.play("whoosh")
 	_close_dialog()
 
 
+## Kayıp yüzüğün düştüğü yer: bölüm başında bir kez seçilir.
+func _yuzuk_yer() -> Array:
+	var yerler: Array = world.YUZUK_YERLERI
+	if not GameState.story_flags.has("yuzuk_yer"):
+		GameState.story_flags["yuzuk_yer"] = randi() % yerler.size()
+	return yerler[int(GameState.story_flags["yuzuk_yer"]) % yerler.size()]
+
+
+## Bir şey aranacak: yere konur, bulununca sahibine götürülür.
+func _story_find(act: Dictionary) -> void:
+	world.spawn_find(_yuzuk_yer()[1])
+	task = {"kind": "story", "giver": "", "info": {}, "targets": ["bul"], "served": [], "what": "Yüzüğü", "find": act["find"], "back": act["back"]}
+	Sfx.play("whoosh")
+	_close_dialog()
+
+
+## Düğün meydanı kurulur, gelinle damat gelir; sonra oraya gidilir.
+func _story_build() -> void:
+	world.set_dugun(true, true)
+	_story_next(GameState.story_now()["who"])
+	Sfx.play("levelup", -6.0)
+
+
 ## Hikayede taşınan şey birine ulaştı.
 func _story_delivered(id: String) -> void:
+	if task.has("find"):  # aranan bulundu, şimdi sahibine
+		world.remove_find()
+		GameState.remember(task["find"])
+		world.set_carry(task["find"])
+		task["targets"] = [task["back"]]
+		task.erase("find")
+		Sfx.play("levelup", -4.0)
+		_say("Parıl parıl bir şey... Elif'in yüzüğü bu! Hemen %s'ye götüreyim." % _who_name(task["targets"][0]),
+			[["Götür", _close_dialog]], "oyuncu")
+		_refresh_task()
+		return
 	task["served"].append(id)
 	Sfx.play("coin")
 	if task.get("simit", false):
@@ -1019,12 +1075,17 @@ func _story_finale(i: int) -> void:
 	var c := Hikaye.chapter(GameState.story_ch)
 	var lines: Array = c["finale"]
 	if i == 0:
-		world.set_firin_open(true, true)
+		match c["id"]:
+			"firin":
+				world.set_firin_open(true, true)
+			"dugun":
+				GameState.story_flags["dugun_gunu"] = GameState.today()
+				world.set_dugun(true, true)
 		Sfx.play("levelup")
 		GameState.remember(c["id"])
 	if i < lines.size():
 		var text: String = lines[i][1]
-		if i == 0 and GameState.story_flags.has("soz_ozlem"):
+		if i == 0 and c["id"] == "firin" and GameState.story_flags.has("soz_ozlem"):
 			text = "Mahalle beni özlemiş, sen söylemiştin ya... Haklıymışsın evladım. " + text
 		_say(text, [["Devam", _story_finale.bind(i + 1)]], _story_speaker(lines[i][0]))
 		return
@@ -1620,6 +1681,27 @@ func _screenshot_tour(dir: String) -> void:
 	await _shot(dir, "10_bolum_bitti")
 	_close_dialog()
 	await _shot(dir, "10_firin_acik")
+	world.update_sky(true, "ogle", 0)
+	GameState.story_ch = 1
+	GameState.story_step = 4
+	GameState.story_flags["yuzuk_yer"] = 0
+	_story_find({"find": "yuzuk", "back": "filiz"})
+	_tp(_yuzuk_yer()[1] + Vector3(1.6, 0, 1.6))
+	await get_tree().create_timer(1.0).timeout
+	await _shot(dir, "11_yuzuk_ara")
+	task = {}
+	world.remove_find()
+	GameState.story_step = Hikaye.chapter(1)["steps"].size() - 1
+	_refresh()
+	_refresh_task()
+	_tp(world.DUGUN_POS + Vector3(0, 0, 3.0))
+	await get_tree().create_timer(0.8).timeout
+	await _shot(dir, "11_dugun")
+	world.update_sky(true, "gece", 0)
+	await _shot(dir, "11_dugun_gece")
+	world.update_sky(true, "ogle", 0)
+	GameState.story_ch = 0
+	GameState.story_step = 0
 	UI.text_scale = 1.2
 	_start_game("yemek", Errands.build({"type": "yemek", "seed": 3, "level": 5}))
 	await _shot(dir, "6_buyuk_yazi")

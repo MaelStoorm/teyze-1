@@ -192,6 +192,74 @@ static func _goods(n: Node3D, item: String, at: Vector3) -> void:
 
 
 ## Ahmet Amca ve pazarcılar gibi erkek/kadın esnaf: Avatar + bıyık, kasket, önlük.
+## Düğün meydanı: dört direk arasında renkli ampuller, beyaz örtülü masalar,
+## davul. "Gelin" çocuğu (gelin, damat) yalnız düğün günü görünür.
+## Ampuller "Ampul" adlı tek bir parçada toplanır ki gece parlasın.
+static func dugun() -> Node3D:
+	var n := Node3D.new()
+	var corners := [Vector3(-1.7, 0, -1.5), Vector3(1.7, 0, -1.5), Vector3(1.7, 0, 1.5), Vector3(-1.7, 0, 1.5)]
+	for c in corners:
+		Models.part(n, Models.cyl(0.06, 0.08, 2.6, 8), "#8a5a3b", c + Vector3(0, 1.3, 0))
+	var colors := ["#f2c23a", "#e04a35", "#4f9ad6", "#4f9a4a", "#e88aa6"]
+	var bulbs := Node3D.new()
+	bulbs.name = "Ampuller"
+	n.add_child(bulbs)
+	var k := 0
+	for i in 4:  # direkten direğe sarkan ip
+		var a: Vector3 = corners[i] + Vector3(0, 2.5, 0)
+		var b: Vector3 = corners[(i + 1) % 4] + Vector3(0, 2.5, 0)
+		for t in range(1, 10):
+			var f := t / 10.0
+			var p := a.lerp(b, f) - Vector3(0, sin(f * PI) * 0.35, 0)
+			var m := Models.part(bulbs, Models.ball(0.11, 8), colors[k % colors.size()], p)
+			var mat := Models.mat(colors[k % colors.size()]).duplicate() as StandardMaterial3D
+			mat.emission_enabled = true
+			mat.emission = Color(colors[k % colors.size()])
+			mat.emission_energy_multiplier = 0.8
+			m.material_override = mat
+			k += 1
+	for z in [-0.75, 0.75]:  # masalar
+		Models.part(n, Models.box(2.0, 0.08, 0.8), "#f8f6f2", Vector3(0, 0.72, z))
+		Models.part(n, Models.box(2.04, 0.3, 0.84), "#f8f6f2", Vector3(0, 0.6, z))
+		for x in [-0.8, 0.8]:
+			Models.part(n, Models.cyl(0.04, 0.04, 0.5, 6), "#8a5a3b", Vector3(x, 0.25, z))
+		for x in [-0.6, 0.0, 0.6]:
+			Models.part(n, Models.cyl(0.12, 0.1, 0.03, 10), "#e8e2d6", Vector3(x, 0.78, z))
+			Models.part(n, Models.ball(0.05, 6), "#c8873a", Vector3(x, 0.81, z))
+	Models.part(n, Models.cyl(0.3, 0.3, 0.42, 14), "#c8412f", Vector3(1.25, 0.5, -1.2), Vector3(0, 0, 90))  # davul
+	for sx in [-1, 1]:
+		Models.part(n, Models.cyl(0.31, 0.31, 0.03, 14), "#f3e3c3", Vector3(1.25 + sx * 0.21, 0.5, -1.2), Vector3(0, 0, 90))
+	var couple := Node3D.new()
+	couple.name = "Gelin"
+	n.add_child(couple)
+	var bride := person({"gender": "kiz", "hair": 2, "hair_color": 1, "skin": 1, "top": 5, "bottom_style": 1, "bottom": 5})
+	Models.part(bride, Models.cyl(0.2, 0.42, 0.62, 16), "#fbf8f2", Vector3(0, 0.31, 0))  # gelinlik
+	Models.part(bride, Models.ball(0.3, 12, true), "#ffffff", Vector3(0, 1.5, -0.08), Vector3(-20, 0, 0), Vector3(1, 1.4, 0.8))  # duvak
+	bride.position = Vector3(-0.35, 0, 1.15)
+	couple.add_child(bride)
+	var groom := person({"gender": "erkek", "hair": 0, "hair_color": 0, "skin": 2, "top": 7, "bottom": 0})
+	groom.position = Vector3(0.35, 0, 1.15)
+	couple.add_child(groom)
+	return n
+
+
+## Kayıp yüzük: yerde küçük altın halka, üstünde pırlanta parıltısı.
+static func yuzuk() -> Node3D:
+	var n := Node3D.new()
+	var t := TorusMesh.new()
+	t.inner_radius = 0.07
+	t.outer_radius = 0.1
+	Models.part(n, t, "#e8b63a", Vector3(0, 0.05, 0), Vector3(70, 0, 0))
+	var gem := Models.part(n, Models.ball(0.045, 6), "#bfe4f2", Vector3(0, 0.15, -0.03))
+	n.scale = Vector3.ONE * 1.8
+	var m := Models.mat("#bfe4f2").duplicate() as StandardMaterial3D
+	m.emission_enabled = true
+	m.emission = Color("ffffff")
+	m.emission_energy_multiplier = 1.5
+	gem.material_override = m
+	return n
+
+
 static func person(look: Dictionary) -> Node3D:
 	var n := Avatar.build(look)
 	var body := n.get_node("Body")
