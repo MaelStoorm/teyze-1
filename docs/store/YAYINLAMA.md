@@ -170,12 +170,11 @@ Pratik ipuçları:
 ## 9. Gizlilik sayfası için GitHub Pages'i aç
 
 1. GitHub'da `MaelStoorm/teyze-1` > **Settings > Pages**.
-2. **Build and deployment > Source**: `Deploy from a branch`.
-3. **Branch**: `main`, klasör: `/docs` > **Save**.
-4. Bir-iki dakika sonra şu adres açılmalı: https://maelstoorm.github.io/teyze-1/gizlilik.html
-5. Bu adresi Play Console'daki gizlilik politikası alanına yapıştır.
+2. **Build and deployment > Source**: `GitHub Actions` (aynı ayar oyunun web sürümünü de yayınlar).
+3. **Actions** sekmesinde "Web sürümü" iş akışı bitince şu adres açılmalı: https://maelstoorm.github.io/teyze-1/gizlilik.html
+4. Bu adresi Play Console'daki gizlilik politikası alanına yapıştır.
 
-Not: `docs/` altındaki diğer dosyalar da (mağaza görselleri, bu rehber) aynı sitede herkese açık olur. Depo zaten herkese açık olduğu için sorun değil; gizli bir şey (anahtar, şifre) bu klasöre asla konmamalı.
+Not: `docs/` altındaki dosyalar (mağaza klasörü hariç) aynı sitede herkese açık olur. Depo zaten herkese açık olduğu için sorun değil; gizli bir şey (anahtar, şifre) bu klasöre asla konmamalı.
 
 ---
 
