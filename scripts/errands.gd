@@ -42,6 +42,12 @@ const RECIPES := [
 	{"name": "Mercimek Çorbası", "items": ["mercimek", "sogan", "havuc"]},
 	{"name": "Sütlaç", "items": ["sut", "pirinc", "seker"]},
 ]
+## Seviye 5'ten sonra dört malzemeli, sırası önemli tarifler.
+const BIG_RECIPES := [
+	{"name": "Menemen", "items": ["sogan", "biber", "domates", "yumurta"]},
+	{"name": "Mercimek Çorbası", "items": ["sogan", "havuc", "mercimek", "domates"]},
+	{"name": "Peynirli Omlet", "items": ["yumurta", "sut", "peynir", "biber"]},
+]
 const PANTRY := {
 	"domates": "domates", "biber": "biber", "yumurta": "yumurta", "mercimek": "mercimek",
 	"sogan": "soğan", "havuc": "havuç", "sut": "süt", "pirinc": "pirinç", "seker": "şeker",
@@ -79,6 +85,7 @@ static func build(errand: Dictionary) -> Dictionary:
 			for k in want:
 				parts.append("%d %s" % [want[k], MARKET[k]])
 			return {
+				"level": lv,
 				"want": want,
 				"intro": "Evladım, pazara gidiver de bana %s al. Allah razı olsun!" % _join(parts),
 				"thanks": "Maşallah, hepsi tamam! Eline sağlık yavrum.",
@@ -87,6 +94,7 @@ static func build(errand: Dictionary) -> Dictionary:
 			var list: Array = LONG_MESSAGES if lv >= 4 else MESSAGES
 			var msg: Dictionary = list[rng.randi() % list.size()]
 			return {
+				"level": lv,
 				"icons": msg["icons"],
 				"text": msg["text"],
 				"intro": "Karşı komşu %s'a bir haber götürür müsün? %s" % [KOMSU, msg["text"]],
@@ -94,25 +102,29 @@ static func build(errand: Dictionary) -> Dictionary:
 			}
 		"kedi":
 			return {
-				"spot": rng.randi() % 6,
+				"level": lv,
+				"spot": rng.randi() % (8 if lv >= 5 else 6),
 				"intro": "Pamuk yine kaçtı! Bahçede bir yere saklanmıştır, bulur musun yavrum?",
 				"thanks": "Pamuğum gel buraya! Sen olmasan ne yapardım evladım.",
 			}
 		"yemek":
-			var r: Dictionary = RECIPES[rng.randi() % RECIPES.size()]
+			var book: Array = BIG_RECIPES if lv >= 5 else RECIPES
+			var r: Dictionary = book[rng.randi() % book.size()]
 			var names := []
 			for k in r["items"]:
 				names.append(PANTRY[k])
 			return {
+				"level": lv,
 				"recipe": r["name"],
 				"items": r["items"],
 				"stirs": 8 + mini(lv, 6),
-				"intro": "Evladım, akşama %s yapalım mı? Bana %s lazım. Sonra güzelce karıştırırsın." % [r["name"], _join(names)],
+				"intro": "Evladım, akşama %s yapalım mı? Bana %s%s lazım. Sonra güzelce karıştırırsın." % [r["name"], "sırasıyla " if lv >= 3 else "", _join(names)],
 				"thanks": "Mis gibi kokuyor! Ellerine sağlık, %s olmuş maşallah." % r["name"],
 			}
 		"altin":
 			var guests: Array = TEYZELER.slice(0, 4 if lv >= 5 else 3)
 			return {
+				"level": lv,
 				"guests": guests,
 				"intro": "Bu ay altın günü bende! %s altınlarını toplayıverir misin? Giderken ikramlarını unutma." % _join(guests.map(func(g): return g["name"])),
 				"thanks": "Altınlar tamam! Altın günü bu sefer çok güzel olacak.",

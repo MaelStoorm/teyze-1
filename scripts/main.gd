@@ -1342,15 +1342,23 @@ func _quit_game() -> void:
 
 func _on_game_finished(_success: bool, info: Dictionary) -> void:
 	var type := GameState.current_errand().get("type", "") as String
+	var stars: int = game.get("stars") if game.get("stars") != null else 0
 	game.queue_free()
 	game = null
 	level_note = ""
 	if info.has("neighbor"):
 		_finish_favor(info)
 		return
-	var reward := GameState.complete_errand(type, info.get("bonus", 0))
+	var extra: int = STAR_BONUS.get(stars, 0)  # dikkatli oynayana fazladan kurabiye
+	var reward := GameState.complete_errand(type, info.get("bonus", 0) + extra)
 	var text := "%s Al bakalım, %d kurabiye senin!" % [info["thanks"], reward]
+	if extra > 0:
+		text += " Üç yıldız aldın, %d tanesi ondan!" % extra if stars == 3 else " %d tanesi iki yıldızın hakkı." % extra
 	_say(text + level_note, [["Afiyet olsun bana", _close_dialog]])
+
+
+## Yıldıza göre işin fazladan ödülü.
+const STAR_BONUS := {3: 3, 2: 1}
 
 
 func _finish_favor(info: Dictionary) -> void:

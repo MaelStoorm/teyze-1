@@ -1,5 +1,7 @@
 extends Minigame
 ## Komşuya haber: teyzenin sözünü aklında tut, komşuya sırasıyla anlat.
+## Yanlış kelime ve ikinciden sonraki "teyze ne demişti?" bakışları yıldızdan
+## götürür. Seviye 3'ten sonra seçenek çoğalır, 4'ten sonra haber uzar.
 
 const DISTRACTORS := ["ay", "gunes", "cay", "borek", "ev", "kurabiye", "simit", "kapi", "yumurta", "peynir"]
 
@@ -11,15 +13,19 @@ var slots: Array = []
 var option_buttons := {}
 var go_button: Button
 var again_button: Button
+var level := 1
+var peeks := 0
 
 
 func build() -> void:
+	rated = true
 	icons = data["icons"]
+	level = data.get("level", 1)
 	header("Komşuya Haber", "")
 	# düğmeler sol sütunda: ekran ne kadar kısa olursa olsun hep görünür
 	go_button = UI.button("Aklımda, götürüyorum", _show_tell, 18)
 	add_action(go_button)
-	again_button = UI.button("Teyze ne demişti?", _show_learn, 18)
+	again_button = UI.button("Teyze ne demişti?", peek, 18)
 	add_action(again_button)
 	learn = _build_learn()
 	tell = _build_tell()
@@ -41,12 +47,12 @@ func _build_learn() -> Control:
 	var v := _page()
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 10)
-	var t := Portrait.new(Vector2(96, 96))
+	var t := Portrait.new(Vector2(80, 80))
 	t.size_flags_vertical = SIZE_SHRINK_CENTER
 	top.add_child(t)
 	var p := PanelContainer.new()
 	p.size_flags_horizontal = SIZE_EXPAND_FILL
-	p.add_child(UI.label("“%s”" % data["text"], 22, UI.INK, true))
+	p.add_child(UI.label("“%s”" % data["text"], 19, UI.INK, true))
 	top.add_child(p)
 	v.add_child(top)
 	var row := HBoxContainer.new()
@@ -56,11 +62,11 @@ func _build_learn() -> Control:
 	for i in icons.size():
 		var card := PanelContainer.new()
 		var c := VBoxContainer.new()
-		c.add_child(UI.label(str(i + 1), 18, UI.ACCENT))
-		var s := UI.sprite(icons[i], 46 if many else 54)
+		c.add_child(UI.label(str(i + 1), 16, UI.ACCENT))
+		var s := UI.sprite(icons[i], 44 if many else 50)
 		s.size_flags_horizontal = SIZE_SHRINK_CENTER
 		c.add_child(s)
-		c.add_child(UI.label(Errands.ICON_NAMES[icons[i]], 15 if many else 18))
+		c.add_child(UI.label(Errands.ICON_NAMES[icons[i]], 15 if many else 17))
 		card.add_child(c)
 		row.add_child(card)
 	v.add_child(row)
@@ -84,16 +90,17 @@ func _build_tell() -> Control:
 	var options := icons.duplicate()
 	var extra := DISTRACTORS.filter(func(x): return x not in icons)
 	extra.shuffle()
-	options.append_array(extra.slice(0, 6 - icons.size()))
+	var count := 8 if level >= 3 else 6
+	options.append_array(extra.slice(0, count - icons.size()))
 	options.shuffle()
 	var grid := GridContainer.new()
-	grid.columns = 3
+	grid.columns = 4 if count > 6 else 3
 	grid.size_flags_horizontal = SIZE_SHRINK_CENTER
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
 	for k in options:
 		var b := UI.icon_button(k, Errands.ICON_NAMES[k], Callable())
-		b.custom_minimum_size = Vector2(96, 96)
+		b.custom_minimum_size = Vector2(96, 94)
 		b.pressed.connect(_choose.bind(k, b))
 		option_buttons[k] = b
 		grid.add_child(b)
@@ -106,7 +113,20 @@ func _show_learn() -> void:
 	tell.visible = false
 	go_button.visible = true
 	again_button.visible = false
-	say("Teyzenin sözünü aklında tut. İstediğin kadar bakabilirsin.")
+	if peeks == 0:
+		say("Teyzenin sözünü sırasıyla aklında tut.")
+
+
+## Teyzenin sözüne yeniden bakmak: ilki serbest, sonrakiler yıldızdan götürür.
+func peek() -> void:
+	if step >= icons.size():
+		return
+	peeks += 1
+	_show_learn()
+	if peeks == 1:
+		say("Bu bakış serbest; sonrakiler yıldız götürür.")
+	else:
+		mistake("Olsun, bir daha bakalım.")
 
 
 func _show_tell() -> void:
@@ -121,8 +141,7 @@ func _choose(k: String, b: Button) -> void:
 	if step >= icons.size():
 		return
 	if k != icons[step]:
-		UI.shake(b)
-		say("Hmm, öyle mi dedi? Bir daha düşün.", UI.ACCENT)
+		mistake("Hmm, öyle mi dedi? Bir daha düşün.", b)
 		return
 	var slot: PanelContainer = slots[step]
 	for c in slot.get_children():
