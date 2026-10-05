@@ -195,7 +195,7 @@ func _build_title() -> void:
 	_tap_label.add_theme_constant_override("outline_size", 8)
 	v.add_child(_tap_label)
 	var foot := Label.new()
-	foot.text = "© 2026 MaelStoorm Studios"
+	foot.text = "© 2026 MaelStoorm Studios · Tüm hakları saklıdır"
 	foot.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	foot.anchor_left = 0.5
 	foot.anchor_right = 0.98

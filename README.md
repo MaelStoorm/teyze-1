@@ -1,6 +1,6 @@
 # Fatma Teyze
 
-**MaelStoorm Studios**
+**MaelStoorm Studios** · © 2026 Egemen · Tüm hakları saklıdır
 
 Metroda, otobüste, iki durak arasında oynanan sıcacık bir mahalle oyunu. Fatma Teyze ve komşuları sana her gün küçük işler verir. Mahallede dolaş, pazardan alışveriş yap, komşulara yardım et, kurabiye kazan.
 
@@ -51,4 +51,10 @@ Play Store sürümü için ayrı bir yükleme anahtarı oluşturulacak.
 - Gerçek gün takibi ve seri ödülleri
 - Play Store hazırlığı ve uygulama içi satın alma (Google Play hesabı onaylandıktan sonra)
 
-© 2026 MaelStoorm Studios
+## Telif hakkı
+
+**© 2026 Egemen, MaelStoorm Studios. Tüm hakları saklıdır.**
+
+Fatma Teyze; kodu, görselleri, karakterleri ve adıyla Egemen'e (MaelStoorm Studios) aittir. Kodun burada görünmesi kullanma izni değildir: yazılı izin olmadan kopyalanamaz, değiştirilemez, yeniden yayınlanamaz, satılamaz ya da mağazalara yüklenemez. Ayrıntılar [LICENSE](LICENSE) dosyasında.
+
+*All rights reserved. This is not open source; see [LICENSE](LICENSE).*
