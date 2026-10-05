@@ -12,6 +12,7 @@ const CAM_OFFSET := Vector3(0, 11.0, 9.2)
 const BOUNDS := Rect2(-19.5, -5.3, 39.0, 30.0)
 const STALL_POS := {"manav": Vector3(-4.2, 0, 12.2), "firin": Vector3(0.0, 0, 12.2), "sarkuteri": Vector3(4.2, 0, 12.2)}
 const KAHVE_POS := Vector3(-8.5, 0, -0.6)
+const FIRIN_POS := Vector3(14.6, 0, -6.6)
 const FARM := Rect2(6.5, 1.5, 6.5, 7.0)
 const POND_POS := Vector3(-9.5, 0, 7.5)
 const BOWL_POS := Vector3(-0.9, 0, -5.0)
@@ -73,6 +74,11 @@ var _bostan_sig := ""
 const PLAYER_SPEED := 2.6
 ## Yürüme kolu (main bağlar); sürülürken dokunarak yürüme iptal olur.
 var joystick: Joystick
+var _firin: Node3D
+var _firinci: Node3D
+var _smoke: CPUParticles3D
+var _story_mark: Label3D
+var _story_id := ""
 var _driving := false
 var _walk_id := 0
 var _walk_pending := false
@@ -187,6 +193,33 @@ func _build() -> void:
 		_blockers.append(Rect2(x - 0.8, 1.9, 1.6, 0.8))  # çay masaları
 	_blockers.append(Rect2(-11.3, 0.7, 0.8, 0.8))  # semaver
 
+	# Mehmet Usta'nın fırını: hikayede kapalı başlar
+	_firin = Props.firin()
+	_solid(_firin, FIRIN_POS, 0, Rect2(FIRIN_POS.x - 1.9, FIRIN_POS.z - 1.4, 3.8, 2.9))
+	_blockers.append(Rect2(FIRIN_POS.x - 1.8, FIRIN_POS.z + 1.9, 1.4, 0.7))  # simit tezgahı
+	targets["firin"] = {"node": _firin, "h": 2.4, "mark": Vector3(-1.1, 2.3, 1.8), "spot": FIRIN_POS + Vector3(0.6, 0, 2.3)}
+	_firinci = Props.person(Props.STALLS["firin"]["look"])
+	_firinci.position = FIRIN_POS + Vector3(0.3, 0, 1.9)
+	_firinci.scale = Vector3.ONE * 1.3
+	_firinci.visible = false
+	root.add_child(_firinci)
+	_smoke = CPUParticles3D.new()
+	_smoke.mesh = Models.ball(0.18, 6)
+	_smoke.material_override = Models.mat("#e9e6e0")
+	_smoke.amount = 10
+	_smoke.lifetime = 3.0
+	_smoke.direction = Vector3(0.2, 1, 0)
+	_smoke.spread = 12.0
+	_smoke.initial_velocity_min = 0.35
+	_smoke.initial_velocity_max = 0.55
+	_smoke.gravity = Vector3.ZERO
+	_smoke.scale_amount_min = 0.7
+	_smoke.scale_amount_max = 1.6
+	_smoke.position = FIRIN_POS + Vector3(1.1, 4.1, -0.5)
+	_smoke.emitting = false
+	_smoke.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(_smoke)
+
 	# pazar yeri
 	for kind in STALL_POS:
 		var p: Vector3 = STALL_POS[kind]
@@ -259,6 +292,9 @@ func _build() -> void:
 	_marker.visible = false
 
 	bubble = _make_bubble(Color("c8412f"))
+	_story_mark = _make_bubble(Color("e0a020"))
+	_story_mark.font_size = 190  # hikaye işareti: daha büyük, altın renkli
+	_story_mark.visible = false
 	refresh_decor()
 	refresh_neighbors()
 	_update_blockers()
@@ -281,7 +317,13 @@ func _optimize() -> void:
 	keep.append(_marker)
 	keep.append(_bostan_root)
 	keep.append_array(_decor_nodes.values())
+	keep.append(_firin.get_node("Kapali"))
+	keep.append(_firin.get_node("Acik"))
+	keep.append(_firinci)
 	Bake.merge_static(_root, keep)
+	for k in ["Kapali", "Acik"]:
+		Bake.merge_rig(_firin.get_node(k))
+	Bake.merge_rig(_firinci)
 	for n in moving:
 		Bake.merge_rig(n)
 	for n in _decor_nodes.values():
@@ -663,6 +705,26 @@ func set_marks(bubbles: Array, goals: Array) -> void:
 		_goal_marks[i].visible = i < _goals.size()
 
 
+## Hikayede sıradaki kişinin başında altın yıldız; "" ise gizli.
+func set_story_mark(id: String) -> void:
+	_story_id = id
+	_story_mark.visible = id != "" and targets.has(id)
+
+
+## Fırın açık mı: camlar yanar, bacadan duman tüter, Mehmet Usta kapıda durur.
+## Tezgahtaki satıcı da artık fırına geçmiştir.
+func set_firin_open(open: bool, animate := false) -> void:
+	_firin.get_node("Kapali").visible = not open
+	_firin.get_node("Acik").visible = open
+	_firinci.visible = open
+	_smoke.emitting = open
+	if open and animate:
+		_hop(_firinci)
+		var tw := _firin.create_tween()
+		_firin.scale = Vector3.ONE * 0.94
+		tw.tween_property(_firin, "scale", Vector3.ONE, 0.5).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+
+
 ## Oyuncunun taşıdığı şey: "" (hiç), "cay", "file", "gozluk".
 func set_carry(kind: String) -> void:
 	if _carry:
@@ -803,6 +865,9 @@ func _update_blockers() -> void:
 func _process(delta: float) -> void:
 	_t += delta
 	bubble.position = teyze.position + Vector3(0, 3.0 + sin(_t * 4.0) * 0.08, 0)
+	if _story_mark.visible and targets.has(_story_id):
+		var st: Dictionary = targets[_story_id]
+		_story_mark.position = st["node"].position + st.get("mark", Vector3(0, st["h"] + 1.2, 0)) + Vector3(0, sin(_t * 4.0 + 2.0) * 0.08, 0)
 	for id in _bubbles:
 		_bubbles[id].position = targets[id]["node"].position + Vector3(0, 2.9 + sin(_t * 4.0 + 1.0) * 0.08, 0)
 	for i in _goals.size():
@@ -812,7 +877,7 @@ func _process(delta: float) -> void:
 		_goal_marks[i].position = g["node"].position + Vector3(0, g["h"] + 0.9 + sin(_t * 5.0) * 0.15, 0)
 		_goal_marks[i].rotation.y = _t * 2.0
 	# kamera oyuncuyu yumuşakça takip eder
-	var want := Vector3(clampf(player.position.x, -15.5, 15.5), 0, clampf(player.position.z - 0.8, -2.8, 22.5))
+	var want := Vector3(clampf(player.position.x, -15.5, 15.5), 0, clampf(player.position.z - 0.8, -4.4, 22.5))
 	_cam_focus = _cam_focus.lerp(want, minf(1.0, delta * 2.5))
 	camera.look_at_from_position(_cam_focus + CAM_OFFSET, _cam_focus)
 	if _marker.visible:

@@ -486,6 +486,31 @@ def _(i):
         i.dot(x, y, 4, "#c8412f")
 
 
+@icon("odun")
+def _(i):
+    for k, (x, y) in enumerate(((14, 70), (40, 52), (66, 70), (28, 34), (54, 34))):
+        i.shape(R(x, y, x + 52, y + 26, 13), "#a8703f" if k % 2 == 0 else "#946035")
+        i.dot(x + 44, y + 13, 8, "#e8c48e")
+        i.dot(x + 44, y + 13, 3, "#a8703f")
+
+
+@icon("davetiye")
+def _(i):
+    i.shape(R(10, 30, 118, 104, 8), "#f8f2e6")
+    i.shape(P((12, 32), (64, 74), (116, 32)), "#efe3c8", gloss=False)
+    i.shape(E(52, 60, 76, 84), "#c8412f", gloss=False)
+    i.dot(64, 72, 4, "#f2c23a")
+
+
+@icon("firin")
+def _(i):
+    i.shape(R(12, 40, 116, 118, 10), "#e8d2b0")
+    i.shape(P((6, 46), (64, 10), (122, 46)), "#c8553a", gloss=False)
+    i.shape(E(36, 62, 92, 112), "#5c3a26", gloss=False)
+    i.shape(E(44, 74, 84, 112), "#f2a03a", outline=False, gloss=False)
+    i.shape(R(88, 14, 102, 40, 3), "#8a5a3b", gloss=False)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     import sys

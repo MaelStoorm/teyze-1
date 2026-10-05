@@ -31,6 +31,7 @@ var album_button: Button
 var _toasts: Array[String] = []
 var _toast_busy := false
 var _world_check := 0.0
+var _story_game := false
 var hint_label: Label
 var level_note := ""
 var hud_hearts: HBoxContainer
@@ -238,6 +239,7 @@ func _refresh() -> void:
 	world.refresh_decor()
 	world.refresh_neighbors()
 	world.refresh_bostan()
+	world.set_firin_open(GameState.chapter_done("firin"))
 	world.set_bowl_full(GameState.sutlu_fed_today())
 	world.sutlu_follow = GameState.sutlu_fed_today()
 	friends_button.visible = not GameState.neighbors_unlocked().is_empty()
@@ -266,15 +268,24 @@ func _refresh_task() -> void:
 			goals.append("sutlu")
 	else:
 		goals = _task_goals()
+	var story_who := _story_who() if task.is_empty() else ""
+	if story_who == "fatma":
+		bubbles.erase("fatma")  # hikaye işareti yeter
 	if _tut_kind() == "walk":
 		bubbles = ["fatma"]
 		goals = ["fatma"]
+		story_who = ""
 	world.set_marks(bubbles, goals if game == null else [])
-	task_panel.visible = not task.is_empty() and game == null
+	world.set_story_mark(story_who if game == null else "")
+	var goal := _story_goal() if task.is_empty() and tutorial_step < 0 else ""
+	task_panel.visible = (not task.is_empty() or goal != "") and game == null
 	if task.is_empty():
+		task_label.text = goal
+		drop_button.visible = false
 		return
 	task_label.text = _task_text()
-	drop_button.visible = not task["info"].get("tutorial", false)  # rehberin işi bırakılmaz
+	# rehberin ve hikayenin işi bırakılmaz
+	drop_button.visible = not task["info"].get("tutorial", false) and task["kind"] != "story"
 
 
 func _task_done() -> bool:
@@ -288,7 +299,7 @@ func _task_done() -> bool:
 			return task["served"].size() >= task["targets"].size()
 		"find":
 			return task["found"]
-	return false
+	return false  # "story": her teslimde kendisi biter
 
 
 func _task_goals() -> Array:
@@ -308,6 +319,8 @@ func _task_goals() -> Array:
 			return task["targets"].filter(func(t): return t not in task["served"])
 		"find":
 			return ["gozluk"]
+		"story":
+			return task["targets"].filter(func(t): return t not in task["served"])
 	return []
 
 
@@ -328,6 +341,9 @@ func _task_text() -> String:
 			return "Çay götür: " + ", ".join(left.map(func(t): return Neighbors.name_of(t)))
 		"find":
 			return "%s'nin gözlüğünü mahallede ara." % who
+		"story":
+			var left: Array = task["targets"].filter(func(t): return t not in task["served"])
+			return "%s götür: %s" % [task["what"], ", ".join(left.map(func(t): return _who_name(t)))]
 	return ""
 
 
@@ -524,6 +540,12 @@ func _interact(id: String) -> void:
 		return
 	if not task.is_empty() and _task_step(id):
 		return
+	if task.is_empty() and id == _story_who():
+		_story_talk()
+		return
+	if id == "firin":
+		_talk_firin()
+		return
 	if id == "fatma":
 		_talk_fatma()
 	elif id.begins_with("stall_"):
@@ -545,7 +567,8 @@ func _talk_fatma() -> void:
 		_say("Önce elindeki işi bitir evladım, ben buradayım.", [["Tamam teyzecim", _close_dialog]])
 		return
 	if GameState.is_day_over():
-		_say("Bugünlük bu kadar %s. Yarın yine gel, sana kurabiye ayırdım." % GameState.call_name(),
+		var extra: Array = Hikaye.after_lines("fatma")
+		_say("Bugünlük bu kadar %s. Yarın yine gel, sana kurabiye ayırdım.%s" % [GameState.call_name(), (" " + extra[0]) if extra.size() > 0 else ""],
 			[["Yarın görüşürüz teyzecim", _close_dialog]])
 		return
 	var errand := GameState.current_errand()
@@ -561,7 +584,10 @@ func _talk_fatma() -> void:
 func _talk_neighbor(id: String) -> void:
 	var n := Neighbors.get_neighbor(id)
 	if not GameState.favor_available(id) or not task.is_empty():
-		var line: String = n["chat"][randi() % n["chat"].size()]
+		var pool: Array = Hikaye.after_lines(id)
+		if pool.is_empty() or randf() < 0.4:  # mahallede olan biten daha çok konuşulur
+			pool = n["chat"]
+		var line: String = pool[randi() % pool.size()]
 		_say(line, _neighbor_extras(id) + [["Hadi kolay gelsin", _close_dialog]], id)
 		return
 	var others := ["fatma"]
@@ -615,6 +641,11 @@ func _start_task(giver: String, info: Dictionary) -> void:
 
 ## İş sürerken birine dokunulunca işin adımı. Bir şey yaptıysa true döner.
 func _task_step(id: String) -> bool:
+	if task["kind"] == "story":
+		if id in task["targets"] and id not in task["served"]:
+			_story_delivered(id)
+			return true
+		return false
 	if id == task["giver"] and _task_done():
 		_finish_task()
 		return true
@@ -824,6 +855,236 @@ func _open_settings() -> void:
 	back.size_flags_horizontal = SIZE_SHRINK_BEGIN
 	game.add_back(back)
 	_refresh()
+
+
+# --- hikaye ------------------------------------------------------------------------
+
+## Hikayede sıradaki kişi; ona şu an gidilemiyorsa "".
+func _story_who() -> String:
+	if not GameState.settings["tutorial"]:
+		return ""
+	var st := GameState.story_now()
+	if st.is_empty():
+		return ""
+	var who: String = st["who"]
+	if Neighbors.get_neighbor(who).size() > 0 and GameState.level() < Neighbors.get_neighbor(who)["unlock"]:
+		return ""  # o komşu henüz taşınmadı
+	return who
+
+
+## Üstteki hedef yazısı: bölümün adı ve sıradaki iş.
+func _story_goal() -> String:
+	var st := GameState.story_now()
+	if st.is_empty():
+		return ""
+	var c := Hikaye.chapter(GameState.story_ch)
+	var text: String = st["goal"]
+	var who: String = st["who"]
+	var n := Neighbors.get_neighbor(who)
+	if n.size() > 0 and GameState.level() < n["unlock"]:
+		text = "%s %d. seviyede mahalleye taşınacak. İşleri yap, seviye atla." % [n["name"], n["unlock"]]
+	elif st["do"].has("pay"):
+		text = "%s: %d/%d kurabiye" % [st["goal"], mini(GameState.kurabiye, st["do"]["pay"]), st["do"]["pay"]]
+	return "Bölüm %d · %s: %s" % [GameState.story_ch + 1, c["title"], text]
+
+
+## Dünyadaki hedefin konuşma kutusundaki konuşanı.
+func _story_speaker(who: String) -> String:
+	return "stall_firin" if who == "firin" else who
+
+
+func _who_name(id: String) -> String:
+	if id == "stall_firin" or id == "firin":
+		return "Fırıncı Mehmet"
+	return Neighbors.name_of(id)
+
+
+func _story_talk(i := 0) -> void:
+	var st := GameState.story_now()
+	if st.is_empty():
+		_close_dialog()
+		return
+	var who: String = _story_speaker(st["who"])
+	var lines: Array = st["lines"]
+	if i < lines.size() - 1:
+		_say(lines[i], [["Devam", _story_talk.bind(i + 1)]], who)
+		return
+	var line: String = lines[i]
+	var act: Dictionary = st["do"]
+	if act.has("choice"):
+		var btns := []
+		for ch in act["choice"]:
+			btns.append([ch[0], _story_choose.bind(ch[1], ch[2], who)])
+		_say(line, btns, who)
+	elif act.has("pay"):
+		var need: int = act["pay"]
+		if GameState.kurabiye >= need:
+			_say(line, [["%d kurabiye ver" % need, _story_pay.bind(need)], ["Sonra", _close_dialog]], who)
+		else:
+			_say("%s Daha %d kurabiye lazım. Fatma Teyze'nin işlerini yap, biriktir." % [line, need - GameState.kurabiye],
+				[["Tamam", _close_dialog]], who)
+	elif act.has("game"):
+		_say(line, [[st["btn"], _story_play.bind(act["game"], who)], ["Sonra", _close_dialog]], who)
+	elif act.has("deliver") or act.has("invite"):
+		_say(line, [[st["btn"], _story_carry.bind(act)]], who)
+	elif act.has("finale"):
+		_say(line, [[st["btn"], _story_finale.bind(0)]], who)
+	else:
+		_say(line, [[st["btn"], _story_next.bind(st["who"])]], who)
+
+
+## Adım bitti: sıradaki adım aynı kişideyse konuşma sürer, değilse kutu kapanır.
+func _story_next(from: String) -> void:
+	GameState.advance_story()
+	Sfx.play("good", -6.0)
+	if _story_who() == from:
+		_story_talk()
+	else:
+		_close_dialog()
+
+
+func _story_choose(flag: String, answer: String, who: String) -> void:
+	GameState.story_flags[flag] = true
+	_say(answer, [["Devam", _story_next.bind(GameState.story_now()["who"])]], who)
+
+
+func _story_pay(n: int) -> void:
+	GameState.kurabiye -= n
+	Sfx.play("coin")
+	var who: String = GameState.story_now()["who"]
+	GameState.advance_story()
+	_say("Al bakalım usta, kapının parası. Kapı tamir edildi, gıcır gıcır!", [["Devam", func():
+		if _story_who() == who:
+			_story_talk()
+		else:
+			_close_dialog()]], _story_speaker(who))
+
+
+func _story_play(kind: String, who: String) -> void:
+	_story_game = true
+	_open_fun(kind, who)
+
+
+func _story_carry(act: Dictionary) -> void:
+	var targets: Array
+	var icon: String
+	if act.has("invite"):
+		icon = act["invite"]
+		targets = ["fatma"]
+		for n in GameState.neighbors_unlocked():
+			if n["id"] != GameState.story_now()["who"]:
+				targets.append(n["id"])
+	else:
+		icon = act["carry"]
+		targets = act["deliver"]
+	var what: String = {"odun": "Odunları", "defter": "Tarifi", "davetiye": "Davetiyeleri", "simit": "Simidi"}.get(icon, "Bunu")
+	task = {"kind": "story", "giver": "", "info": {}, "targets": targets, "served": [], "what": what}
+	world.set_carry(icon)
+	Sfx.play("whoosh")
+	_close_dialog()
+
+
+## Hikayede taşınan şey birine ulaştı.
+func _story_delivered(id: String) -> void:
+	task["served"].append(id)
+	Sfx.play("coin")
+	if task.get("simit", false):
+		_simit_given(id)
+		return
+	var left: Array = task["targets"].filter(func(t): return t not in task["served"])
+	if left.is_empty():
+		task = {}
+		world.set_carry("")
+		GameState.advance_story()
+		if _story_who() == id:
+			_story_talk()
+			return
+		_say(INVITE_THANKS.get(id, "Sağ ol evladım, gelirim!"), [["Görüşürüz", _close_dialog]], _story_speaker(id))
+		return
+	_say(INVITE_THANKS.get(id, "Sağ ol evladım, gelirim!"), [["Görüşürüz", _close_dialog]], _story_speaker(id))
+	_refresh_task()
+
+
+const INVITE_THANKS := {
+	"fatma": "Davetiye mi? Ben zaten oradayım evladım, ilk simidi ben yiyeceğim!",
+	"ahmet": "Fırın açılışı mı? Gelirim tabii, tavlayı da getiririm. Mehmet'le bir el atarız.",
+	"miyase": "Ay ne güzel! Mehmet'e bir atkı öreyim, fırının önü soğuk olur.",
+	"hulya": "Gelirim tabii, Zehra'nın tarifini kimse benden iyi bilemez!",
+	"filiz": "Ben zaten yazdım davetiyeleri evladım, kendime de bir tane ayırdım!",
+}
+
+
+## Bölümün sonu: fırın açılır, herkes konuşur, ödül gelir.
+func _story_finale(i: int) -> void:
+	var c := Hikaye.chapter(GameState.story_ch)
+	var lines: Array = c["finale"]
+	if i == 0:
+		world.set_firin_open(true, true)
+		Sfx.play("levelup")
+		GameState.remember(c["id"])
+	if i < lines.size():
+		var text: String = lines[i][1]
+		if i == 0 and GameState.story_flags.has("soz_ozlem"):
+			text = "Mahalle beni özlemiş, sen söylemiştin ya... Haklıymışsın evladım. " + text
+		_say(text, [["Devam", _story_finale.bind(i + 1)]], _story_speaker(lines[i][0]))
+		return
+	var reward: int = c["reward"]
+	GameState.add_kurabiye(reward)
+	GameState.simit_day = ""
+	GameState.advance_story()
+	Sfx.play("win")
+	var tail := " %s" % Hikaye.NEXT_TEASER if GameState.story_now().is_empty() else ""
+	_say("Bölüm bitti: %s! Ödülün %d kurabiye.%s" % [c["title"], reward, tail], [["Çok güzel!", _close_dialog]])
+
+
+## Fırına dokununca: kapalıysa tozlu kapı, açıksa Mehmet Usta ve sıcak simit.
+func _talk_firin() -> void:
+	if not GameState.chapter_done("firin"):
+		_say("Fırının kepenkleri inik, kapısına tahta çakılmış. Camlar tozlu, içi karanlık. Eskiden burası simit kokarmış...",
+			[["Üzüldüm", _close_dialog]])
+		return
+	if not task.is_empty():
+		_say("Hoş geldin evladım! Elindeki işi bitir, sonra uğra, simidin hazır.", [["Tamam usta", _close_dialog]], "stall_firin")
+		return
+	if GameState.simit_ready():
+		_say("Günaydın evladım! Al, fırından yeni çıktı, sıcacık simit. Bir komşuna götür, gönlü olsun.",
+			[["Simidi al", _take_simit], ["Sonra", _close_dialog]], "stall_firin")
+		return
+	_say(FIRIN_CHAT[randi() % FIRIN_CHAT.size()], [["Kolay gelsin usta", _close_dialog]], "stall_firin")
+
+
+const FIRIN_CHAT := [
+	"Sabah dörtte kalkıyorum yine, ama değer. Mahalle simit kokuyor ya!",
+	"Ahmet dün geldi, tavlada beni yendi. Borcumu ödedim sayılır!",
+	"Zehra'nın tarifiyle yaptığım simitleri herkes soruyor. Senin sayende evladım.",
+	"Yarın yine gel, sana sıcak simit ayırırım.",
+]
+
+
+func _take_simit() -> void:
+	GameState.simit_day = GameState.today()
+	GameState.save_game()
+	var targets := ["fatma"]
+	for n in GameState.neighbors_unlocked():
+		targets.append(n["id"])
+	task = {"kind": "story", "giver": "", "info": {}, "targets": targets, "served": [], "what": "Simidi", "simit": true}
+	world.set_carry("simit")
+	Sfx.play("whoosh")
+	_close_dialog()
+
+
+## Sıcak simit bir komşuya ulaştı: bir kalp ve teşekkür.
+func _simit_given(id: String) -> void:
+	task = {}
+	world.set_carry("")
+	if id == "fatma":
+		GameState.add_kurabiye(3)
+		_say("Sıcak simit mi? Çayın yanına ne iyi gider! Al sana 3 kurabiye evladım.", [["Afiyet olsun", _close_dialog]])
+		return
+	var r := GameState.gift_simit(id)
+	var text := "Aaa sıcak simit! Mehmet'in fırınından mı? Eline sağlık evladım. Al bakalım, %d kurabiye." % r["reward"]
+	text += "\n\nDostluk: %d/%d kalp." % [r["hearts"], Neighbors.MAX_HEARTS]
+	_say(text, [["Afiyet olsun", _close_dialog]], id)
 
 
 # --- ilk açılış rehberi ------------------------------------------------------
@@ -1037,6 +1298,15 @@ func _open_fun(kind: String, who: String) -> void:
 func _on_fun_finished(success: bool, kind: String, who: String) -> void:
 	game.queue_free()
 	game = null
+	if _story_game:
+		_story_game = false
+		if success:
+			GameState.remember(kind)
+			GameState.advance_story()
+			_story_talk()
+		else:
+			_say("Olsun evladım, bir daha deneriz. Hazır olunca gel.", [["Tamam", _close_dialog]], who)
+		return
 	var key := "oyun_" + kind
 	if success and kind != "tavla" and GameState.remember(kind):  # tavla kendi sayar
 		GameState.save_game()
@@ -1066,6 +1336,7 @@ func _on_fun_finished(success: bool, kind: String, who: String) -> void:
 func _quit_game() -> void:
 	game.queue_free()
 	game = null
+	_story_game = false
 	_refresh()
 
 
@@ -1221,6 +1492,11 @@ func _screenshot_tour(dir: String) -> void:
 	await _shot(dir, "2_elma")
 	_tp(Vector3(6.0, 0, -3.0))
 	await _shot(dir, "2_evler")
+	_tp(world.FIRIN_POS + Vector3(0.6, 0, 3.4))
+	await _shot(dir, "10_firin_kapali")
+	_interact("firin")
+	await _shot(dir, "10_firin_kapi")
+	_close_dialog()
 	var yesterday := Time.get_date_string_from_unix_time(Time.get_unix_time_from_system() - 86400)
 	GameState.plant(0, "domates")
 	GameState.bostan[0]["planted"] = yesterday
@@ -1318,6 +1594,24 @@ func _screenshot_tour(dir: String) -> void:
 	game.call("_show", Album.get_card("cay"), game)
 	await _shot(dir, "9_album_not")
 	_quit_game()
+	GameState.story_step = 1
+	_tp(Vector3(-1.5, 0, 14.0))
+	_interact("stall_firin")
+	_story_talk(1)
+	await _shot(dir, "10_secim")
+	_close_dialog()
+	GameState.story_step = Hikaye.chapter(0)["steps"].size() - 1
+	_tp(world.FIRIN_POS + Vector3(0.6, 0, 3.4))
+	_refresh_task()
+	await _shot(dir, "10_hedef_acilis")
+	_story_finale(0)
+	await get_tree().create_timer(1.2).timeout
+	await _shot(dir, "10_firin_acilis")
+	_close_dialog()
+	_story_finale(2)
+	await _shot(dir, "10_bolum_bitti")
+	_close_dialog()
+	await _shot(dir, "10_firin_acik")
 	UI.text_scale = 1.2
 	_start_game("yemek", Errands.build({"type": "yemek", "seed": 3, "level": 5}))
 	await _shot(dir, "6_buyuk_yazi")
@@ -1329,7 +1623,7 @@ func _screenshot_tour(dir: String) -> void:
 func _tp(pos: Vector3) -> void:
 	world.player_walker.stop()
 	world.player.position = pos
-	world._cam_focus = Vector3(clampf(pos.x, -15.5, 15.5), 0, clampf(pos.z - 0.8, -2.8, 22.5))
+	world._cam_focus = Vector3(clampf(pos.x, -15.5, 15.5), 0, clampf(pos.z - 0.8, -4.4, 22.5))
 
 
 func _shot(dir: String, name: String) -> void:

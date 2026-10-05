@@ -61,6 +61,81 @@ static func kahvehane() -> Node3D:
 	return n
 
 
+## Mehmet Usta'nın fırını. Hikayenin ilk bölümünde kapalıdır; açılınca
+## camlar ışıldar, bacadan duman tüter. İki hali "Kapali" ve "Acik" adlı
+## alt düğümlerde durur; kod görünürlüklerini değiştirir.
+static func firin() -> Node3D:
+	var n := Node3D.new()
+	# ortak gövde: taş duvar, kırmızı kiremit, taş ocak bacası
+	Models.part(n, Models.box(3.6, 2.2, 2.6), "#ecdcc0", Vector3(0, 1.1, 0))
+	Models.part(n, Models.box(3.8, 0.22, 2.8), "#8a5a3b", Vector3(0, 2.3, 0))
+	Models.part(n, Models.prism(4.0, 0.9, 3.0), "#c8553a", Vector3(0, 2.85, 0))
+	Models.part(n, Models.box(0.7, 1.6, 0.7), "#b5a48a", Vector3(1.1, 3.2, -0.5))  # baca
+	Models.part(n, Models.box(0.8, 0.12, 0.8), "#8a7a62", Vector3(1.1, 4.0, -0.5))
+	for x in [-1.75, 1.75]:
+		Models.part(n, Models.box(0.12, 2.2, 0.12), "#c9b796", Vector3(x, 1.1, 1.31))
+	var sign := label3d("FIRIN", 110, Color("fff4dc"))  # yukarıdan bakan kameraya dönük, kırmızı çatıda okunur
+	sign.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sign.outline_size = 26
+	sign.outline_modulate = Color("5c2418")
+	sign.position = Vector3(0, 2.9, 1.9)
+	n.add_child(sign)
+
+	var shut := Node3D.new()  # kapalı: tahtalar çakılı, kepenk inik, toz
+	shut.name = "Kapali"
+	n.add_child(shut)
+	Models.part(shut, Models.box(1.0, 1.5, 0.08), "#6b5a4a", Vector3(0, 0.75, 1.32))
+	for k in 2:
+		Models.part(shut, Models.box(1.3, 0.14, 0.06), "#a08060", Vector3(0, 0.55 + k * 0.5, 1.38), Vector3(0, 0, 18 if k == 0 else -15))
+	for x in [-1.15, 1.15]:
+		Models.part(shut, Models.box(1.0, 0.9, 0.06), "#8a8070", Vector3(x, 1.15, 1.32))
+		for k in 4:
+			Models.part(shut, Models.box(1.0, 0.03, 0.04), "#6f665a", Vector3(x, 0.8 + k * 0.22, 1.36))
+	var closed := label3d("KAPALI", 40, Color("5c4a3a"))
+	closed.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+	closed.position = Vector3(0, 1.75, 1.4)
+	shut.add_child(closed)
+	for p in [Vector3(-1.4, 0.15, 1.7), Vector3(1.5, 0.1, 1.6)]:  # yerde kuru yaprak
+		Models.part(shut, Models.ball(0.12, 6), "#b08a4a", p, Vector3.ZERO, Vector3(1, 0.3, 1))
+
+	var open := Node3D.new()  # açık: sıcak ışık, tezgahta simitler, tente, saksılar
+	open.name = "Acik"
+	open.visible = false
+	n.add_child(open)
+	Models.part(open, Models.box(1.0, 1.5, 0.08), "#8a5a3b", Vector3(0, 0.75, 1.32))
+	Models.part(open, Models.box(0.6, 0.9, 0.04), "#ffe2a0", Vector3(0, 0.95, 1.37))
+	for x in [-1.15, 1.15]:
+		var w := Models.part(open, Models.box(1.0, 0.9, 0.06), "#ffd98a", Vector3(x, 1.15, 1.32))
+		var m := StandardMaterial3D.new()
+		m.albedo_color = Color("ffe2a0")
+		m.emission_enabled = true
+		m.emission = Color("ffb84a")
+		m.emission_energy_multiplier = 0.9
+		w.material_override = m
+		Models.part(open, Models.box(1.1, 0.08, 0.2), "#8a5a3b", Vector3(x, 0.66, 1.4))
+	for i in 9:  # tente
+		Models.part(open, Models.box(0.4, 0.05, 1.0), "#d8452f" if i % 2 == 0 else "#f4efe6", Vector3(-1.6 + i * 0.4, 1.95, 1.75), Vector3(18, 0, 0))
+	# önde simit tezgahı
+	Models.part(open, Models.box(1.3, 0.7, 0.6), "#a86f48", Vector3(-1.1, 0.35, 2.3))
+	for k in 5:
+		var t := TorusMesh.new()
+		t.inner_radius = 0.05
+		t.outer_radius = 0.12
+		t.rings = 10
+		t.ring_segments = 6
+		Models.part(open, t, "#c8873a", Vector3(-1.5 + k * 0.2, 0.74, 2.3 + (0.08 if k % 2 else -0.08)))
+	for x in [0.9, 1.6]:
+		_saksi(open, Vector3(x, 0, 1.7))
+	return n
+
+
+static func _saksi(n: Node3D, at: Vector3) -> void:
+	Models.part(n, Models.cyl(0.18, 0.14, 0.32, 10), "#c8553a", at + Vector3(0, 0.16, 0))
+	Models.part(n, Models.ball(0.22, 8), "#4f8a3a", at + Vector3(0, 0.45, 0))
+	for k in 3:
+		Models.part(n, Models.ball(0.06, 6), "#e04a4a", at + Vector3(cos(k * 2.1) * 0.15, 0.55, sin(k * 2.1) * 0.15))
+
+
 ## Pazar tezgahı: renkli tente, önde ürünler, tabela.
 static func market_stall(kind: String) -> Node3D:
 	var s: Dictionary = STALLS[kind]

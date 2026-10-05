@@ -64,6 +64,12 @@ var tavla_won := 0
 var tavla_played := 0
 ## Mahalle albümü: açılan anı kartları, id -> tarih (YYYY-MM-DD).
 var album := {}
+## Hikaye: hangi bölümde, hangi adımda; seçimlerle konan bayraklar.
+var story_ch := 0
+var story_step := 0
+var story_flags := {}
+## Fırından bugün sıcak simit alındı mı (tarih).
+var simit_day := ""
 
 
 func _ready() -> void:
@@ -430,6 +436,41 @@ func new_day(advance := true) -> void:
 
 # --- kayıt -------------------------------------------------------------------
 
+# --- hikaye -------------------------------------------------------------------
+
+## Şu anki hikaye adımı; bölümler bittiyse boş.
+func story_now() -> Dictionary:
+	return Hikaye.step(story_ch, story_step)
+
+
+## Bir bölüm bitti mi (fırın açık mı vb.).
+func chapter_done(id: String) -> bool:
+	for i in mini(story_ch, Hikaye.CHAPTERS.size()):
+		if Hikaye.CHAPTERS[i]["id"] == id:
+			return true
+	return false
+
+
+func advance_story() -> void:
+	story_step += 1
+	var c := Hikaye.chapter(story_ch)
+	if not c.is_empty() and story_step >= c["steps"].size():
+		story_ch += 1
+		story_step = 0
+	save_game()
+	changed.emit()
+
+
+## Fırından alınan sıcak simit bir komşuya: bir kalp ve biraz kurabiye.
+func gift_simit(id: String) -> Dictionary:
+	remember("simit")
+	return _befriend(id, 2, 3)
+
+
+func simit_ready() -> bool:
+	return chapter_done("firin") and simit_day != today()
+
+
 ## Albüme bir anı ekler; yeniyse true. (Kaydı çağıran yapar.)
 func remember(id: String, silent := false) -> bool:
 	if album.has(id) or Album.get_card(id).is_empty():
@@ -467,6 +508,10 @@ func save_game() -> void:
 	_check_album()
 	var cfg := ConfigFile.new()
 	cfg.set_value("album", "anilar", album)
+	cfg.set_value("hikaye", "bolum", story_ch)
+	cfg.set_value("hikaye", "adim", story_step)
+	cfg.set_value("hikaye", "bayraklar", story_flags)
+	cfg.set_value("hikaye", "simit", simit_day)
 	cfg.set_value("oyuncu", "kurabiye", kurabiye)
 	cfg.set_value("oyuncu", "gun", day)
 	cfg.set_value("oyuncu", "xp", xp)
@@ -523,6 +568,10 @@ func load_game() -> void:
 	tavla_won = cfg.get_value("tavla", "kazanilan", 0)
 	tavla_played = cfg.get_value("tavla", "oynanan", 0)
 	album = cfg.get_value("album", "anilar", {})
+	story_ch = cfg.get_value("hikaye", "bolum", 0)
+	story_step = cfg.get_value("hikaye", "adim", 0)
+	story_flags = cfg.get_value("hikaye", "bayraklar", {})
+	simit_day = cfg.get_value("hikaye", "simit", "")
 	_check_album(true)  # eski kayıtlarda zaten yaşanmış anılar sessizce eklenir
 
 
@@ -544,6 +593,10 @@ func reset() -> void:
 	tavla_won = 0
 	tavla_played = 0
 	album = {}
+	story_ch = 0
+	story_step = 0
+	story_flags = {}
+	simit_day = ""
 	fresh_unlocks = []
 	streak = 1
 	daily_gift = 0
