@@ -25,6 +25,13 @@ var joystick: Joystick
 var bottom_bar: HBoxContainer
 var hud_panel: PanelContainer
 var tutorial_step := -1
+var hint_panel: PanelContainer
+var drop_button: Button
+var album_button: Button
+var _toasts: Array[String] = []
+var _toast_busy := false
+var _world_check := 0.0
+var hint_label: Label
 var level_note := ""
 var hud_hearts: HBoxContainer
 var dialog: PanelContainer
@@ -67,6 +74,16 @@ func _ready() -> void:
 	gap.size_flags_horizontal = SIZE_EXPAND_FILL
 	gap.mouse_filter = MOUSE_FILTER_IGNORE
 	bottom_bar.add_child(gap)
+	album_button = UI.button("", _open_album, 20)
+	album_button.icon = UI.tex("album")
+	album_button.add_theme_constant_override("icon_max_width", 34)
+	album_button.custom_minimum_size = Vector2(60, 56)
+	album_button.size_flags_vertical = SIZE_SHRINK_END
+	bottom_bar.add_child(album_button)
+	var gap4 := Control.new()
+	gap4.custom_minimum_size.x = 10
+	gap4.mouse_filter = MOUSE_FILTER_IGNORE
+	bottom_bar.add_child(gap4)
 	settings_button = UI.button("", _open_settings, 20)
 	settings_button.icon = UI.tex("ayar")
 	settings_button.add_theme_constant_override("icon_max_width", 34)
@@ -114,8 +131,10 @@ func _ready() -> void:
 	joystick.offset_bottom = -12
 	add_child(joystick)
 	world.joystick = joystick
+	_build_hint()
 	_build_dialog()
 	GameState.changed.connect(_refresh)
+	GameState.remembered.connect(func(id): _toasts.append(id); _next_toast())
 	GameState.leveled_up.connect(_on_level_up)
 	Sfx.set_music(GameState.settings["music"])
 	_refresh()
@@ -223,9 +242,13 @@ func _refresh() -> void:
 	world.sutlu_follow = GameState.sutlu_fed_today()
 	friends_button.visible = not GameState.neighbors_unlocked().is_empty()
 	world.visible = game == null
-	bottom_bar.visible = game == null and not dialog.visible
-	joystick.visible = bottom_bar.visible and tutorial_step < 0
-	top_row.visible = game == null and not dialog.visible
+	var free := game == null and not dialog.visible
+	bottom_bar.visible = free and not _tut_moving()
+	joystick.visible = free and (tutorial_step < 0 or _tut_moving())
+	hint_panel.visible = free and _tut_moving()
+	if hint_panel.visible:
+		hint_label.text = _tut_hint()
+	top_row.visible = free and _tut_kind() != "walk"  # yürürken teyze göstergenin altında kalmasın
 	_refresh_task()
 
 
@@ -243,11 +266,15 @@ func _refresh_task() -> void:
 			goals.append("sutlu")
 	else:
 		goals = _task_goals()
+	if _tut_kind() == "walk":
+		bubbles = ["fatma"]
+		goals = ["fatma"]
 	world.set_marks(bubbles, goals if game == null else [])
 	task_panel.visible = not task.is_empty() and game == null
 	if task.is_empty():
 		return
 	task_label.text = _task_text()
+	drop_button.visible = not task["info"].get("tutorial", false)  # rehberin işi bırakılmaz
 
 
 func _task_done() -> bool:
@@ -315,6 +342,7 @@ func _build_task_panel() -> void:
 	task_label.size_flags_horizontal = SIZE_EXPAND_FILL
 	h.add_child(task_label)
 	var x := UI.button("Bırak", _ask_drop_task, 15)
+	drop_button = x
 	x.custom_minimum_size = Vector2(56, 36)
 	x.size_flags_vertical = SIZE_SHRINK_CENTER
 	h.add_child(x)
@@ -344,6 +372,11 @@ func _drop_task() -> void:
 
 func _build_dialog() -> void:
 	dialog = PanelContainer.new()
+	dialog.gui_input.connect(func(e: InputEvent):
+		# yazı akarken kutuya dokunmak hepsini bir anda gösterir
+		if e is InputEventMouseButton and e.pressed and _type_tw and _type_tw.is_running():
+			_type_tw.kill()
+			dialog_text.visible_characters = -1)
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 12)
 	var face := Portrait.new(Vector2(92, 104))
@@ -376,6 +409,40 @@ func _build_dialog() -> void:
 	overlay.add_child(dialog)
 
 
+## Konuşanların ses perdesi (mırıltı). Listede olmayan (Sütlü) mırıldanmaz.
+const VOICE := {"fatma": 1.0, "filiz": 1.12, "miyase": 1.24, "hulya": 0.92, "ahmet": 0.6, "nermin": 1.05,
+	"stall_manav": 0.72, "stall_firin": 0.8, "stall_sarkuteri": 0.95}
+const VOWEL_SOUND := {"a": "ses_a", "ı": "ses_i", "e": "ses_e", "i": "ses_i", "o": "ses_o", "ö": "ses_o", "u": "ses_u", "ü": "ses_u"}
+var _type_tw: Tween
+var _voiced := 0
+
+
+## Yazıyı harf harf açar; ünlülerde konuşanın sesiyle kısa bir hece çıkar.
+func _type_dialog(who: String) -> void:
+	if _type_tw:
+		_type_tw.kill()
+	var text := dialog_text.text
+	# satırlar baştan bütün metne göre kurulsun; yoksa kutu tek satır sanılır
+	dialog_text.visible_characters_behavior = TextServer.VC_CHARS_AFTER_SHAPING
+	dialog_text.visible_characters = 0
+	_voiced = 0
+	var pitch: float = VOICE.get(who, 0.0)
+	var dur := clampf(text.length() / 42.0, 0.25, 3.5)
+	_type_tw = create_tween()
+	_type_tw.tween_method(func(n: int):
+		dialog_text.visible_characters = n
+		if pitch > 0.0 and n - _voiced >= 3 and n <= text.length():
+			# son birkaç harfteki ünlünün hecesini çal
+			for k in range(n - 1, maxi(n - 4, 0) - 1, -1):
+				var ch := text[k].to_lower()
+				if VOWEL_SOUND.has(ch):
+					Sfx.play(VOWEL_SOUND[ch], -10.0, pitch * randf_range(0.94, 1.08))
+					_voiced = n
+					break,
+		0, text.length(), dur)
+	_type_tw.tween_callback(func(): dialog_text.visible_characters = -1)
+
+
 ## Konuşma kutusunu yazıya göre boylandırır; ekrana sığmazsa kaydırılır.
 func _fit_dialog() -> void:
 	dialog_scroll.scroll_vertical = 0
@@ -385,6 +452,8 @@ func _fit_dialog() -> void:
 	var lines := dialog_text.get_line_count()
 	var need := lines * (dialog_text.get_line_height() + dialog_text.get_theme_constant("line_spacing")) + 4
 	var room := size.y - 20 - dialog_name.size.y - 30
+	if top_row.visible:  # rehberde üst gösterge de açık kalır
+		room -= top_row.size.y + 10
 	dialog_scroll.custom_minimum_size.y = minf(need, room)
 
 
@@ -422,7 +491,9 @@ func _say(text: String, buttons: Array, who := "") -> void:
 	bottom_bar.visible = false
 	joystick.visible = false
 	_fit_dialog()
-	top_row.visible = tutorial_step >= 0 and TUTORIAL[tutorial_step][1] == "hud"
+	_type_dialog(who)
+	top_row.visible = _tut_kind() == "hud"
+	hint_panel.visible = false
 
 
 func _close_dialog() -> void:
@@ -435,7 +506,7 @@ func _close_dialog() -> void:
 
 ## Dünyada bir şeye dokunuldu: oraya yürü, sonra ne olduğuna göre konuş.
 func _on_tapped(id: String) -> void:
-	if busy or game != null or tutorial_step >= 0:
+	if busy or game != null or (tutorial_step >= 0 and not _tut_moving()):
 		return
 	busy = true
 	Sfx.play("tap")
@@ -447,6 +518,10 @@ func _on_tapped(id: String) -> void:
 
 ## Yürüdükten sonraki etkileşim (testler doğrudan bunu çağırır).
 func _interact(id: String) -> void:
+	if _tut_kind() == "walk":
+		if id == "fatma":
+			_tutorial(tutorial_step + 1)
+		return
 	if not task.is_empty() and _task_step(id):
 		return
 	if id == "fatma":
@@ -506,8 +581,13 @@ func _neighbor_extras(id: String) -> Array:
 		out.append(["Bostandan hediye ver", _gift_harvest.bind(id)])
 	if id == "ahmet":
 		out.append(["Bir el tavla atalım", _open_fun.bind("tavla", "ahmet")])
+		out.append(["Göle balığa gidelim", _open_fun.bind("balik", "ahmet")])
 	if id == "filiz":
 		out.append(["Çay demlemeyi öğret", _open_fun.bind("cay", "filiz")])
+	if id == "miyase":
+		out.append(["Örgü örelim", _open_fun.bind("orgu", "miyase")])
+	if id == "hulya":
+		out.append(["Mantı yapalım", _open_fun.bind("manti", "hulya")])
 	return out
 
 
@@ -612,7 +692,13 @@ func _finish_task() -> void:
 	task = {}
 	world.set_carry("")
 	level_note = ""
-	if giver == "fatma":
+	if info.get("tutorial", false):  # rehberdeki ilk iş: günün işlerinden sayılmaz
+		GameState.remember("ilk_is")
+		GameState.add_kurabiye(TUT_REWARD)
+		Sfx.play("levelup", -4.0)
+		_say("Eline sağlık evladım, domatesler mis gibi! Al bakalım, ilk %d kurabiyen." % TUT_REWARD,
+			[["Sağ ol teyzecim", _tutorial.bind(tutorial_step + 1)]])
+	elif giver == "fatma":
 		var reward := GameState.complete_errand("pazar")
 		_say("%s Al bakalım, %d kurabiye senin!%s" % [Errands.build({"type": "pazar"})["thanks"], reward, level_note],
 			[["Afiyet olsun bana", _close_dialog]])
@@ -742,14 +828,83 @@ func _open_settings() -> void:
 
 # --- ilk açılış rehberi ------------------------------------------------------
 
+## Fatma Teyze yeni oyuncuyu ilk işinde elinden tutar: önce yanına yürütür,
+## sonra pazardan iki domates aldırır, en sonda ekranı tanıtır.
+## [söz, tür]: "" konuşma, "walk" teyzeye yürü, "task" ilk işi yap,
+## "hud"/"bar" o kısmı parlatır.
 const TUTORIAL := [
-	["Hoş geldin evladım! Ben Fatma Teyze. Mahallenin bütün işleri bende, sen de bana yardım edeceksin.", ""],
-	["Ekranda bir yere dokunursan oraya yürürsün. Sol alttaki yuvarlak kolu kaydırarak da gezebilirsin.", ""],
-	["Bana dokununca sana bir iş veririm. Her iş birkaç dakika sürer. Acele yok, istediğin an bırakıp sonra devam edebilirsin.", ""],
-	["İşi bitirince kurabiye kazanırsın. Üstteki kalpler bugünkü işlerin, yıldız da seviyen. Seviye atladıkça yeni işler açılır.", "hud"],
+	["Hoş geldin evladım! Ben Fatma Teyze. Mahallenin bütün işleri bende, sen de bana yardım edeceksin. Hele bir yanıma gel bakalım.", ""],
+	["", "walk"],
+	["Aferin, ne güzel yürüyorsun! İlk işin kolay: pazardan bana 2 domates al. Altın ok nereye gideceğini gösterir.", ""],
+	["", "task"],
+	["Üstteki kalpler bugünkü işlerin, yıldız da seviyen. İşleri bitirdikçe seviye atlarsın, yeni işler açılır.", "hud"],
 	["Kurabiyelerinle Dükkan'dan işini kolaylaştıran hediyeler alırsın. Yazıyı büyütmek ya da sesi kısmak için de dişli düğmesine bas.", "bar"],
-	["Her gün uğra, her gün yeni işler ve sana bir hediye olur. Haydi, şimdi bana bir dokun bakalım!", ""],
+	["Her gün uğra, her gün yeni işler ve sana bir hediye olur. Haydi, şimdi bana bir dokun, sana bugünün işini vereyim!", ""],
 ]
+const TUT_WANT := {"domates": 2}
+const TUT_REWARD := 5
+
+
+func _tut_kind() -> String:
+	return TUTORIAL[tutorial_step][1] if tutorial_step >= 0 and tutorial_step < TUTORIAL.size() else ""
+
+
+## Rehberde oyuncunun kendisinin gezdiği adımlar (yürüme, ilk iş).
+func _tut_moving() -> bool:
+	return _tut_kind() in ["walk", "task"]
+
+
+func _tut_hint() -> String:
+	if _tut_kind() == "walk":
+		return "Fatma Teyze'nin yanına git: ekrana dokun ya da sol alttaki kolu kaydır."
+	if not task.is_empty() and _task_done():
+		return "Domatesler tamam! Fatma Teyze'ye dön, ona dokun."
+	return "Altın oku takip et. Manav'a dokun, domates al."
+
+
+func _build_hint() -> void:
+	hint_panel = PanelContainer.new()
+	hint_panel.add_theme_stylebox_override("panel", UI.box(Color("fff4c8"), UI.INK, 3, 10))
+	hint_panel.mouse_filter = MOUSE_FILTER_IGNORE
+	hint_label = UI.label("", 18)
+	hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint_label.custom_minimum_size.x = 300
+	hint_panel.add_child(hint_label)
+	hint_panel.anchor_left = 0.5
+	hint_panel.anchor_right = 0.5
+	hint_panel.anchor_top = 1.0
+	hint_panel.anchor_bottom = 1.0
+	hint_panel.grow_horizontal = GROW_DIRECTION_BOTH
+	hint_panel.grow_vertical = GROW_DIRECTION_BEGIN
+	hint_panel.offset_bottom = -14
+	hint_panel.visible = false
+	add_child(hint_panel)
+
+
+func _process(delta: float) -> void:
+	# mahallede gezerken sabah, gece ve yağmur anıları
+	_world_check -= delta
+	if _world_check <= 0.0:
+		_world_check = 3.0
+		var splash_on := get_children().any(func(c): return c is Splash)  # açılış ekranının üstüne çıkmasın
+		if game == null and world.visible and not splash_on and tutorial_step < 0 and GameState.settings["tutorial"]:
+			var ph := Mahalle3D.phase_now()
+			var got := false
+			if ph == "sabah":
+				got = GameState.remember("sabah") or got
+			elif ph == "gece":
+				got = GameState.remember("gece") or got
+			if GameState.is_rainy():
+				got = GameState.remember("yagmur") or got
+			if got:
+				GameState.save_game()
+	# rehberde teyzenin yanına kendi yürüyerek de varılabilir
+	if _tut_kind() == "walk" and not busy and not dialog.visible \
+			and world.player.position.distance_to(world.teyze.position) < 2.2:
+		_tutorial(tutorial_step + 1)
+	elif hint_panel.visible and _tut_kind() == "task":
+		hint_label.text = _tut_hint()
 
 
 func _tutorial(step: int) -> void:
@@ -760,8 +915,27 @@ func _tutorial(step: int) -> void:
 		GameState.daily_gift = 0
 		_close_dialog()
 		return
-	var last := step == TUTORIAL.size() - 1
-	_say(TUTORIAL[step][0], [["Tamam teyzecim" if last else "Devam", _tutorial.bind(step + 1)]])
+	match TUTORIAL[step][1]:
+		"walk":
+			if not task.is_empty():  # ayarlardan yeniden açıldı, elde iş var
+				_tutorial(4)
+				return
+			_close_dialog()
+			return
+		"task":
+			_start_task("fatma", {"kind": "shop", "want": TUT_WANT.duplicate(), "tutorial": true})
+			return
+	var text: String = TUTORIAL[step][0]
+	var button := "Devam"
+	match step:
+		0:
+			button = "Geliyorum teyzecim"
+		2:
+			button = "Hemen teyzecim"
+			world.player_walker.stop()
+	if step == TUTORIAL.size() - 1:
+		button = "Tamam teyzecim"
+	_say(text, [[button, _tutorial.bind(step + 1)]])
 	match TUTORIAL[step][1]:
 		"hud":
 			_pulse(hud_panel)
@@ -774,6 +948,60 @@ func _pulse(node: Control) -> void:
 	var tw := node.create_tween().set_loops(4)
 	tw.tween_property(node, "modulate", Color(1.25, 1.15, 0.7), 0.35)
 	tw.tween_property(node, "modulate", Color.WHITE, 0.35)
+
+
+## Mahalle albümü: açılan anı kartları.
+func _open_album() -> void:
+	if game != null or busy or tutorial_step >= 0:
+		return
+	_close_dialog()
+	game = load("res://scripts/minigames/album.gd").new().setup({})
+	add_child(game)
+	var back := UI.button("Mahalleye dön", _quit_game, 18)
+	back.custom_minimum_size = Vector2(180, 48)
+	game.add_back(back)
+	_refresh()
+
+
+## Albüme yeni anı eklenince üstte kısa bir kart kayarak görünür.
+func _next_toast() -> void:
+	if _toast_busy or _toasts.is_empty():
+		return
+	_toast_busy = true
+	var card := Album.get_card(_toasts.pop_front())
+	var p := PanelContainer.new()
+	p.add_theme_stylebox_override("panel", UI.box(Color("fffaf0"), Color(card["color"]), 4, 10))
+	p.mouse_filter = MOUSE_FILTER_IGNORE
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 10)
+	h.add_child(UI.sprite(card["icon"], 40))
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 0)
+	var l1 := UI.label("Albüme yeni anı", 15, Color("8a6a4a"))
+	l1.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	v.add_child(l1)
+	var l2 := UI.label(card["title"], 21)
+	l2.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	v.add_child(l2)
+	h.add_child(v)
+	p.add_child(h)
+	p.anchor_left = 0.5
+	p.anchor_right = 0.5
+	p.grow_horizontal = GROW_DIRECTION_BOTH
+	p.offset_top = -90
+	p.offset_bottom = -90
+	add_child(p)
+	Sfx.play("levelup", -8.0, 1.2)
+	var tw := p.create_tween()
+	var y_end := top_row.size.y + 20.0 if top_row.visible else 10.0  # göstergenin altında
+	tw.tween_method(func(y: float): p.offset_top = y; p.offset_bottom = y, -90.0, y_end, 0.35) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(2.4)
+	tw.tween_property(p, "modulate:a", 0.0, 0.4)
+	tw.tween_callback(func():
+		p.queue_free()
+		_toast_busy = false
+		_next_toast())
 
 
 ## Kendi evinin içi: kurabiyeyle eşya alıp yerleştirme.
@@ -791,6 +1019,10 @@ func _open_home() -> void:
 
 ## Ahmet Amca'yla tavla ya da Filiz Teyze'yle çay demleme. Günün ilk
 ## oyununda küçük bir ödül var; sonra istediğin kadar oynarsın.
+## Komşularla oynanan oyunların günün ilk oyunundaki ödülü: [kazanınca, kaybedince].
+const FUN_REWARD := {"tavla": [6, 2], "cay": [4, 1], "orgu": [5, 2], "manti": [5, 2], "balik": [5, 2]}
+
+
 func _open_fun(kind: String, who: String) -> void:
 	_close_dialog()
 	game = load("res://scripts/minigames/%s.gd" % kind).new().setup({})
@@ -806,11 +1038,13 @@ func _on_fun_finished(success: bool, kind: String, who: String) -> void:
 	game.queue_free()
 	game = null
 	var key := "oyun_" + kind
+	if success and kind != "tavla" and GameState.remember(kind):  # tavla kendi sayar
+		GameState.save_game()
 	var first := not GameState.gifts_today.has(key)
 	var reward := 0
 	if first:
 		GameState.gifts_today[key] = true
-		reward = (6 if success else 2) if kind == "tavla" else (4 if success else 1)
+		reward = FUN_REWARD.get(kind, [4, 1])[0 if success else 1]
 		GameState.add_kurabiye(reward)
 	var text := ""
 	match kind:
@@ -818,6 +1052,12 @@ func _on_fun_finished(success: bool, kind: String, who: String) -> void:
 			text = "Eline sağlık, beni yendin! Kırk yıldır yenilmemiştim valla." if success else "Bu sefer ben kazandım ama iyi oynadın delikanlı. Yarın rövanş!"
 		"cay":
 			text = "Tavşan kanı olmuş, mis gibi! Sen bu işi öğrendin." if success else "Olsun evladım, çay demlemek sabır ister. Yine gel."
+		"orgu":
+			text = "Atkın sıcacık oldu, kışın boynunu sarar! Elinin ayarı varmış senin." if success else "Birkaç ilmek kaçtı ama olsun, el emeği göz nuru. Yine öreriz."
+		"manti":
+			text = "Kaşığa dört tane sığıyor maşallah! Annem görse seni evlat edinirdi." if success else "Olsun, hamur da sabır ister. Yine yaparız."
+		"balik":
+			text = "Rastgele! Akşama tavada kızartırız, sen de gel." if success else "Balık bugün nazlıydı. Olsun, göl kenarında sohbet de güzel."
 	if reward > 0:
 		text += " Al bakalım, %d kurabiye." % reward
 	_say(text, [["Sağ ol", _close_dialog]], who)
@@ -885,13 +1125,12 @@ func _show_daily_gift() -> bool:
 	if GameState.daily_gift <= 0:
 		return false
 	var gift := GameState.daily_gift
+	var surprise := GameState.daily_surprise
 	GameState.daily_gift = 0
-	var text := "Günaydın %s! Bugün de geldin, al sana %d kurabiye." % [GameState.call_name(), gift]
-	if GameState.streak > 1:
-		text += " %d gündür hiç aksatmadın, maşallah!" % GameState.streak
-	text += " Yeni günde yeni işler var."
-	Sfx.play("coin")
-	_say(text, [["Günaydın teyzecim", _close_dialog]])
+	GameState.daily_surprise = ""
+	var cal := Takvim.new().setup(gift, surprise)
+	cal.closed.connect(_refresh)
+	add_child(cal)
 	return true
 
 
@@ -902,6 +1141,12 @@ func _arg(key: String) -> String:
 		if a.begins_with(key + "="):
 			return a.substr(key.length() + 1)
 	return ""
+
+
+func _show_daily_gift_test(gift: int, surprise := "") -> void:
+	GameState.daily_gift = gift
+	GameState.daily_surprise = surprise
+	_show_daily_gift()
 
 
 func _screenshot_tour(dir: String) -> void:
@@ -925,8 +1170,27 @@ func _screenshot_tour(dir: String) -> void:
 	_quit_game()
 	GameState.avatar = {"gender": "kiz", "hair": 0, "hair_color": 1, "top": 1, "name": "Ayşe"}
 	world.set_player_look(GameState.avatar)
+	_tutorial(1)
+	await _shot(dir, "1_rehber_yuru")
+	_tutorial(3)
+	await _shot(dir, "1_rehber_is")
+	task = {}
+	world.set_carry("")
+	_refresh()
 	_tutorial(4)
 	await _shot(dir, "1_rehber")
+	_close_dialog()
+	tutorial_step = -1
+	GameState.streak = 3
+	_show_daily_gift_test(5)
+	await _shot(dir, "1_takvim")
+	get_children().filter(func(c): return c is Takvim)[-1].call("_close")
+	GameState.streak = 7
+	_show_daily_gift_test(12, "kilim")
+	await _shot(dir, "1_takvim_7")
+	get_children().filter(func(c): return c is Takvim)[-1].call("_close")
+	GameState.streak = 1
+	tutorial_step = 4
 	_tutorial(TUTORIAL.size())
 	await _shot(dir, "0_mahalle")
 	_on_tapped("fatma")
@@ -1037,9 +1301,23 @@ func _screenshot_tour(dir: String) -> void:
 	_open_fun("cay", "filiz")
 	await _shot(dir, "8_cay")
 	_quit_game()
+	for kind in [["balik", "ahmet"], ["orgu", "miyase"], ["manti", "hulya"]]:
+		_open_fun(kind[0], kind[1])
+		await _shot(dir, "8_" + kind[0])
+		_quit_game()
 	_talk_neighbor("ahmet")
 	await _shot(dir, "8_ahmet")
 	_close_dialog()
+	_toasts.clear()
+	await get_tree().create_timer(4.0).timeout  # önceki anı kartları geçsin
+	GameState.remember("cay")
+	await get_tree().create_timer(0.4).timeout
+	await _shot(dir, "9_ani_karti")
+	_open_album()
+	await _shot(dir, "9_album")
+	game.call("_show", Album.get_card("cay"), game)
+	await _shot(dir, "9_album_not")
+	_quit_game()
 	UI.text_scale = 1.2
 	_start_game("yemek", Errands.build({"type": "yemek", "seed": 3, "level": 5}))
 	await _shot(dir, "6_buyuk_yazi")
@@ -1056,5 +1334,8 @@ func _tp(pos: Vector3) -> void:
 
 func _shot(dir: String, name: String) -> void:
 	await get_tree().create_timer(0.6).timeout
+	if _type_tw and _type_tw.is_running():
+		_type_tw.kill()
+		dialog_text.visible_characters = -1
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png("%s/%s.png" % [dir, name])

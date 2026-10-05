@@ -33,6 +33,8 @@ func _initialize() -> void:
 	var t0 := Time.get_ticks_msec()
 	var opened := {}
 	for i in taps:
+		if i == 400 and main.tutorial_step >= 0:  # rastgele dokunuşla pazar işi bitmez; rehberi kapat
+			main._tutorial(main.TUTORIAL.size())
 		var p := Vector2(randf() * size.x, randf() * size.y)
 		if randf() < 0.1 and main.joystick and main.joystick.is_visible_in_tree():
 			# yürüme kolunu bir süre bir yöne it

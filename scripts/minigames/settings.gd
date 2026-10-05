@@ -36,6 +36,8 @@ func build() -> void:
 	reset_button = UI.button("Oyunu sıfırla", _reset, 20)
 	reset_button.add_theme_color_override("font_color", UI.ACCENT)
 	box.add_child(reset_button)
+	var own := UI.label("Fatma Teyze\n© 2026 Egemen, MaelStoorm Studios\nTüm hakları saklıdır.", 15, Color("8a6a4a"), true)
+	box.add_child(own)
 
 
 ## Yazı boyutu kaydırma çubuğu: sürüklerken örnek yazı büyür, bırakınca uygulanır.

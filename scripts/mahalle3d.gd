@@ -175,7 +175,7 @@ func _build() -> void:
 		root.add_child(anchor)
 		targets["tarh%d" % i] = {"node": anchor, "h": 0.4, "spot": c + Vector3(0, 0, BED_SIZE.y / 2 + 0.45) if i >= 2 else c + Vector3(0, 0, -BED_SIZE.y / 2 - 0.45)}
 	_solid(Props.scarecrow(), Vector3(6.0, 0, 3.6), -20, Rect2(5.7, 3.3, 0.6, 0.6))
-	var bl := Props.label3d("BOSTANIN", 110, Color("4f7a2a"))
+	var bl := Props.label3d("BOSTANIM", 110, Color("4f7a2a"))
 	bl.position = Vector3(3.5, 1.4, 1.9)
 	root.add_child(bl)
 	_bostan_root = Node3D.new()
@@ -325,8 +325,10 @@ func _build_outskirts(root: Node3D) -> void:
 				stems.append(Transform3D(Basis(), p + Vector3(0, h / 2, 0)))
 				heads.append(Transform3D(Basis().scaled(Vector3(1, 0.8, 1)), p + Vector3(0, h, 0)))
 				head_colors.append(palette[(bi * 2 + cz) % palette.size()])
-	_multimesh(root, Models.cyl(0.02, 0.02, 1.0, 5), stems, [], "#4f8a3a", Vector3(1, 0.38, 1))
-	_multimesh(root, Models.ball(0.09, 8), heads, head_colors)
+	_multimesh(root, Models.cyl(0.02, 0.02, 1.0, 4), stems, [], "#4f8a3a", Vector3(1, 0.38, 1), false)
+	var head := Models.ball(0.09, 6)
+	head.rings = 3
+	_multimesh(root, head, heads, head_colors, "#ffffff", Vector3.ONE, false)
 	_solid(Models.bench(), Vector3(-1.9, 0, 21.2), 90, Rect2(-2.2, 20.5, 0.6, 1.4))
 	_solid(Models.bench(), Vector3(1.9, 0, 21.2), -90, Rect2(1.6, 20.5, 0.6, 1.4))
 	_solid(Models.tree(), Vector3(-9.5, 0, 21.5), 30, Rect2(-10.2, 20.8, 1.4, 1.4))
@@ -378,7 +380,7 @@ func _build_outskirts(root: Node3D) -> void:
 
 
 ## Aynı şeklin çok kopyası tek çizimde. colors boşsa hepsi color rengi.
-func _multimesh(root: Node3D, mesh: Mesh, xforms: Array, colors: Array, color := "#ffffff", scale := Vector3.ONE) -> void:
+func _multimesh(root: Node3D, mesh: Mesh, xforms: Array, colors: Array, color := "#ffffff", scale := Vector3.ONE, shadow := true) -> void:
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_colors = not colors.is_empty()
@@ -400,6 +402,8 @@ func _multimesh(root: Node3D, mesh: Mesh, xforms: Array, colors: Array, color :=
 			mm.set_instance_color(i, colors[i])
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
+	if not shadow:
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(mmi)
 
 
@@ -747,6 +751,7 @@ func _cobbles(root: Node3D, area: Rect2) -> void:
 		mm.set_instance_color(i, Color(g, g * 0.97, g * 0.92))
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF  # yere yapışık, gölgesi görünmez
 	root.add_child(mmi)
 
 
@@ -756,7 +761,8 @@ func _flowers(root: Node3D) -> void:
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_colors = true
-	var m := Models.ball(0.07, 6)
+	var m := Models.ball(0.07, 5)
+	m.rings = 2  # minicik çiçekler: az üçgen yeter
 	var mat := StandardMaterial3D.new()
 	mat.vertex_color_use_as_albedo = true
 	m.material = mat
@@ -777,6 +783,9 @@ func _flowers(root: Node3D) -> void:
 		mm.set_instance_color(i, colors[i % colors.size()])
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF  # yere yapışık, gölgesi görünmez
+	if GameState.settings.get("grafik", 1) == 0:
+		mmi.visible = false  # Hızlı ayarda çimen çiçekleri çizilmez
 	root.add_child(mmi)
 
 

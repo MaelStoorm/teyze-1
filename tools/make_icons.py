@@ -439,9 +439,60 @@ def _(i):
     i.shape(gear, "#9aa0a6")
 
 
+@icon("album")
+def _(i):
+    i.shape(R(12, 18, 116, 116, 10), "#8e3b2f")
+    i.shape(R(20, 24, 108, 110, 6), "#f3e3c3", gloss=False)
+    i.shape(P((34, 34), (86, 28), (94, 86), (42, 92)), "#ffffff", gloss=False)
+    i.shape(P((42, 42), (80, 38), (86, 70), (48, 74)), "#7cc3e8", outline=False, gloss=False)
+    i.shape(E(52, 54, 66, 68), "#f2c23a", outline=False, gloss=False)
+    i.shape(R(56, 96, 72, 104, 3), "#c8412f", gloss=False)
+
+
+@icon("yagmur")
+def _(i):
+    def cloud(d, s):
+        d.ellipse((s(16), s(30), s(70), s(80)), fill=255)
+        d.ellipse((s(44), s(18), s(108), s(78)), fill=255)
+        d.rounded_rectangle((s(18), s(50), s(110), s(80)), radius=s(14), fill=255)
+    i.shape(cloud, "#c9d6e3")
+    for x, y in ((38, 92), (64, 100), (90, 92)):
+        i.shape(P((x, y - 10), (x + 7, y + 4), (x, y + 10), (x - 7, y + 4)), "#3e8fd0", gloss=False)
+
+
+@icon("balik")
+def _(i):
+    i.shape(P((86, 64), (118, 38), (112, 64), (118, 90)), "#e0843a", gloss=False)
+    i.shape(E(10, 36, 96, 92), "#f2a65a")
+    i.dot(30, 58, 6, "#3b2a1e")
+    i.line([(52, 44), (60, 64), (52, 84)], "#d0743a", 4)
+
+
+@icon("orgu")
+def _(i):
+    i.shape(E(14, 20, 110, 116), "#d6577a")
+    for k in range(4):
+        i.line([(26 + k * 18, 30 + k * 4), (60 + k * 14, 106 - k * 6)], "#b23a5e", 4)
+    i.line([(104, 82), (122, 112)], "#c9a26b", 5)
+    i.line([(96, 92), (118, 120)], "#c9a26b", 5)
+
+
+@icon("manti")
+def _(i):
+    i.shape(E(8, 70, 120, 116), "#f4efe6")
+    for x, y in ((40, 70), (64, 62), (88, 70), (52, 84), (78, 84)):
+        i.shape(P((x - 14, y + 8), (x, y - 12), (x + 14, y + 8)), "#f3d9a4")
+    for x, y in ((30, 96), (60, 102), (92, 96)):
+        i.dot(x, y, 4, "#c8412f")
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
+    import sys
+    only = sys.argv[1:]  # ad verilirse yalnız onlar üretilir
     for name, (fn, w, h) in ICONS.items():
+        if only and name not in only:
+            continue
         i = Icon(w, h)
         fn(i)
         i.save(name)
