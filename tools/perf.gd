@@ -28,6 +28,31 @@ func _initialize() -> void:
 		RenderingServer.viewport_get_render_info(vp.get_viewport_rid(), RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE, RenderingServer.VIEWPORT_RENDER_INFO_OBJECTS_IN_FRAME),
 		RenderingServer.viewport_get_render_info(vp.get_viewport_rid(), RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE, RenderingServer.VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME)])
 	print("PERF shadow draw_calls=%d" % RenderingServer.viewport_get_render_info(vp.get_viewport_rid(), RenderingServer.VIEWPORT_RENDER_INFO_TYPE_SHADOW, RenderingServer.VIEWPORT_RENDER_INFO_DRAW_CALLS_IN_FRAME))
+	# en çok üçgen çizenler
+	var rows := []
+	for n in w[0].find_children("*", "GeometryInstance3D", true, false):
+		var mesh: Mesh = null
+		var count := 1
+		if n is MeshInstance3D:
+			mesh = n.mesh
+		elif n is MultiMeshInstance3D:
+			mesh = n.multimesh.mesh
+			count = n.multimesh.instance_count
+		if mesh == null:
+			continue
+		var tris := 0
+		for si in mesh.get_surface_count():
+			var arr := mesh.surface_get_arrays(si)
+			var idx = arr[Mesh.ARRAY_INDEX]
+			tris += (idx.size() if idx != null and idx.size() > 0 else arr[Mesh.ARRAY_VERTEX].size()) / 3
+		rows.append([tris * count, "%s x%d %s" % [n.name, count, n.get_parent().name]])
+	rows.sort_custom(func(a, b): return a[0] > b[0])
+	var total := 0
+	for r in rows:
+		total += r[0]
+	print("PERF toplam üçgen %d" % total)
+	for r in rows.slice(0, 12):
+		print("PERF  %7d %s" % r)
 	var t0 := Time.get_ticks_msec()
 	for i in 60:
 		await process_frame

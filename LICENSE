@@ -1,0 +1,42 @@
+Fatma Teyze
+Copyright (c) 2026 Egemen, MaelStoorm Studios. Tüm hakları saklıdır.
+All rights reserved.
+
+TÜRKÇE
+
+Bu depodaki oyun, kaynak kodu, görseller, modeller, müzik, sesler, metinler,
+karakterler (Fatma Teyze ve mahalle sakinleri dahil) ve "Fatma Teyze" adı
+Egemen'e (MaelStoorm Studios) aittir ve 5846 sayılı Fikir ve Sanat Eserleri
+Kanunu ile uluslararası telif hakkı anlaşmalarıyla korunur.
+
+Kodun burada herkese açık görünmesi, kullanma izni verildiği anlamına gelmez.
+Sahibinin yazılı izni olmadan bu eserin tamamı ya da bir parçası;
+kopyalanamaz, çoğaltılamaz, değiştirilemez, yeniden yayınlanamaz, dağıtılamaz,
+satılamaz, başka bir oyunda ya da üründe kullanılamaz ve uygulama
+mağazalarına yüklenemez.
+
+Aşağıdaki parçalar başka sahiplere aittir ve kendi lisanslarıyla kullanılır:
+- assets/sounds altındaki gerçek hayvan sesleri: CC0 (kamu malı); kaynakları
+  assets/sounds/HAYVAN_SESLERI_LISANS.txt dosyasında.
+- Godot Engine: MIT lisansı (https://godotengine.org/license).
+
+İzin ve iletişim için: https://github.com/MaelStoorm/teyze-1/issues
+
+ENGLISH
+
+The game in this repository, its source code, artwork, models, music, sounds,
+text, characters (including Fatma Teyze and the neighborhood residents) and
+the name "Fatma Teyze" are owned by Egemen (MaelStoorm Studios) and are
+protected by Turkish Law No. 5846 on Intellectual and Artistic Works and by
+international copyright treaties.
+
+Publicly visible source code is not a license to use it. Without the owner's
+written permission you may not copy, reproduce, modify, republish,
+distribute, sell, use in another game or product, or upload to any app store
+all or any part of this work.
+
+Third-party parts keep their own licenses: the real animal sounds in
+assets/sounds are CC0 (see assets/sounds/HAYVAN_SESLERI_LISANS.txt), and the
+Godot Engine is MIT licensed.
+
+For permission or contact: https://github.com/MaelStoorm/teyze-1/issues
