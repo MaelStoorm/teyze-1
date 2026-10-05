@@ -46,6 +46,14 @@ Metroda, otobüste, iki durak arasında oynanan sıcacık bir mahalle oyunu. Fat
 
 Play Store sürümü için ayrı bir yükleme anahtarı oluşturulacak.
 
+## Web sürümü (iPhone, tarayıcı)
+
+Oyun tarayıcıda da oynanır: https://maelstoorm.github.io/teyze-1/
+
+- iPhone'da Safari ile aç, telefonu yan çevir. **Paylaş > Ana Ekrana Ekle** ile uygulama gibi tam ekran açılır.
+- Kayıt tarayıcıda saklanır; Safari verileri silinirse oyun baştan başlar.
+- `main` dalına her birleştirmede `.github/workflows/web.yml` oyunu dışa aktarıp GitHub Pages'e koyar. Yerelde: `godot --headless --export-release Web build/web/index.html` (tek iş parçacıklı web şablonu, özel sunucu başlığı gerekmez).
+
 ## Sıradaki adımlar
 
 - Gerçek gün takibi ve seri ödülleri
