@@ -43,6 +43,7 @@ jobs:
         run: |
           {
             echo "Commit: $GITHUB_SHA"
+            echo "hata yolu denemesi"; false
             base=https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable
             cd "$RUNNER_TEMP"
             curl -fsSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
