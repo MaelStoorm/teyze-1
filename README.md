@@ -23,7 +23,7 @@ Metroda, otobüste, iki durak arasında oynanan sıcacık bir mahalle oyunu. Fat
 
 ## Çalıştırma
 
-1. [Godot 4.3](https://godotengine.org/download) indir.
+1. [Godot 4.5.2](https://godotengine.org/download/archive/4.5.2-stable/) indir.
 2. Godot'ta "Import" ile bu klasördeki `project.godot` dosyasını aç.
 3. F5 ile çalıştır. Oyun yatay ekrandır (640x360 tasarım boyutu).
 
@@ -41,10 +41,10 @@ Metroda, otobüste, iki durak arasında oynanan sıcacık bir mahalle oyunu. Fat
 ## Android APK
 
 1. `godot --headless --export-release "Android" build/teyze.apk`
-   (Godot 4.3 export şablonları ve Editor Settings'te bir Android SDK yolu gerekir.)
+   (Godot 4.5.2 export şablonları ve Editor Settings'te bir Android SDK yolu gerekir.)
 2. `java -jar uber-apk-signer.jar -a build/teyze.apk --ks <keystore> --ksAlias teyze`
 
-Play Store sürümü için ayrı bir yükleme anahtarı oluşturulacak.
+Google Play için AAB: `tools/make_aab.py` ve [docs/store/YAYINLAMA.md](docs/store/YAYINLAMA.md).
 
 ## Web sürümü (iPhone, tarayıcı)
 

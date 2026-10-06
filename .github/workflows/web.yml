@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GODOT_VERSION: "4.3"
+  GODOT_VERSION: "4.5.2"
 
 jobs:
   build:
