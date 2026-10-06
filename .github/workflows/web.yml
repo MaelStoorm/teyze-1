@@ -46,6 +46,14 @@ jobs:
           cp -r docs/* site/
           rm -rf site/store
 
+      - name: Gizlilik politikasını sitenin köküne koy
+        # Play Console'daki bağlantı: https://maelstoorm.github.io/teyze-1/gizlilik.html
+        run: |
+          cp docs/gizlilik.html site/gizlilik.html
+          test -s site/gizlilik.html
+          grep -q "egementughan@gmail.com" site/gizlilik.html
+          ls -la site
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
