@@ -3,6 +3,5 @@
 *.apk
 *.aab
 build/
-.claude/worktrees/
 *.jks
 *.keystore
