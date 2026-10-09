@@ -11,6 +11,7 @@ var _next := 0
 var music: AudioStreamPlayer
 var sound_on := true
 var music_on := true
+var _away := false
 
 
 func _ready() -> void:
@@ -42,6 +43,31 @@ func play(name: String, volume_db := 0.0, pitch := 1.0) -> void:
 	p.volume_db = volume_db
 	p.pitch_scale = pitch
 	p.play()
+
+
+## Oyun arka plana geçince (telefonda ana ekrana dönünce, tarayıcıda başka sekmeye
+## geçince) bütün sesleri kısar ve oyunu durdurur; geri gelince kaldığı yerden sürdürür.
+func _notification(what: int) -> void:
+	match what:
+		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT:
+			set_away(true)
+		NOTIFICATION_APPLICATION_RESUMED, NOTIFICATION_APPLICATION_FOCUS_IN:
+			set_away(false)
+
+
+## Yedek: geri dönüş bildirimi gelmezse ilk dokunuşta oyun devam eder.
+func _input(event: InputEvent) -> void:
+	if _away and event.is_pressed() and (event is InputEventScreenTouch or event is InputEventMouseButton):
+		set_away(false)
+
+
+func set_away(away: bool) -> void:
+	if away == _away:
+		return
+	_away = away
+	AudioServer.set_bus_mute(0, away)
+	if is_inside_tree():
+		get_tree().paused = away
 
 
 ## Ayara göre müziği başlatır ya da durdurur.
