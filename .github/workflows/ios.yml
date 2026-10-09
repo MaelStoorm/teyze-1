@@ -1,0 +1,151 @@
+# iPhone (App Store) sürümü: Godot'un iOS dışa aktarımıyla Xcode projesi üretilir, GitHub'ın Mac
+# sunucusunda derlenir, imzalanır ve App Store Connect'e (TestFlight) yüklenir.
+# Apple gizli değerleri (ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8) yoksa yalnızca imzasız derlenip denetlenir.
+# © 2026 Egemen, MaelStoorm Studios. Tüm hakları saklıdır.
+name: iOS derleme
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.5.2"
+  BUNDLE_ID: com.maelstoorm.teyze
+  APP_NAME: Teyze
+
+jobs:
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Xcode 26 seç
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$X" ]; then echo "::error::Bu sunucuda Xcode 26 yok"; exit 1; fi
+          sudo xcode-select -s "$X/Contents/Developer"
+          xcodebuild -version
+
+      - name: Godot ve iOS şablonunu indir
+        run: |
+          base=https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable
+          cd "$RUNNER_TEMP"
+          curl -fsSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_macos.universal.zip"
+          unzip -q godot.zip && rm godot.zip
+          curl -fsSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          dir="$HOME/Library/Application Support/Godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$dir"
+          unzip -q -j templates.tpz templates/version.txt templates/ios.zip -d "$dir"
+          rm templates.tpz
+          echo "GODOT=$RUNNER_TEMP/Godot.app/Contents/MacOS/Godot" >> "$GITHUB_ENV"
+
+      - name: Apple gizli değerleri var mı?
+        id: keys
+        run: |
+          if [ -n "$ASC_KEY_ID" ] && [ -n "$ASC_ISSUER_ID" ] && [ -n "$ASC_KEY_P8" ]; then
+            echo "ok=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=0" >> "$GITHUB_OUTPUT"
+            echo "::warning::Apple gizli değerleri girilmemiş: yalnızca imzasız derlenip denetlenecek."
+          fi
+
+      - name: Apple hazırlığı (paket kimliği, sertifika, imza profili)
+        if: steps.keys.outputs.ok == '1'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install -q cryptography
+          "$RUNNER_TEMP/venv/bin/python" ios/ci/asc.py
+
+      - name: Godot'tan Xcode projesi üret
+        run: |
+          TEAM="${TEAM_ID:-AAAAAAAAAA}"
+          sed -i '' "s/^application\/app_store_team_id=.*/application\/app_store_team_id=\"$TEAM\"/" export_presets.cfg
+          sed -i '' "s/^application\/version=.*/application\/version=\"${{ github.run_number }}\"/" export_presets.cfg
+          "$GODOT" --headless --import || true
+          mkdir -p build/ios
+          "$GODOT" --headless --verbose --export-release iOS build/ios/Teyze.ipa 2>&1 | tail -40
+          ls build/ios
+          test -d build/ios/Teyze.xcodeproj
+          # App Store ikonu saydam olamaz: Xcode projesindeki bütün ikonları düz zeminli ikonla değiştir
+          find build/ios -path '*AppIcon.appiconset/*.png' | while read -r f; do
+            w=$(sips -g pixelWidth "$f" | awk '/pixelWidth/{print $2}')
+            sips -s format png -z "$w" "$w" ios/icon-1024.png --out "$f" >/dev/null
+          done
+
+      - name: Denetim derlemesi (imzasız)
+        if: steps.keys.outputs.ok != '1'
+        run: |
+          xcodebuild -project build/ios/Teyze.xcodeproj -scheme Teyze -configuration Release \
+            -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build | tail -30
+
+      - name: Sertifikayı anahtar zincirine koy
+        if: steps.keys.outputs.ok == '1'
+        run: |
+          KC="$RUNNER_TEMP/imza.keychain-db"; PW=$(uuidgen)
+          security create-keychain -p "$PW" "$KC"
+          security set-keychain-settings -lut 21600 "$KC"
+          security unlock-keychain -p "$PW" "$KC"
+          security import "$SIGN_KEY" -k "$KC" -T /usr/bin/codesign -T /usr/bin/security
+          security import "$SIGN_CERT" -k "$KC"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$PW" "$KC" >/dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          rm -f "$SIGN_KEY"
+
+      - name: Arşivle
+        if: steps.keys.outputs.ok == '1'
+        run: |
+          xcodebuild -project build/ios/Teyze.xcodeproj -scheme Teyze -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/Teyze.xcarchive" \
+            CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" PROVISIONING_PROFILE="" \
+            PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" archive | tail -30
+
+      - name: Paketle ve App Store Connect'e yükle
+        if: steps.keys.outputs.ok == '1'
+        run: |
+          printf '%s\n' "$ASC_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+          DEST=export; [ "$APP_EXISTS" = "1" ] && DEST=upload
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>$DEST</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>Apple Distribution</string>
+            <key>provisioningProfiles</key><dict><key>$BUNDLE_ID</key><string>$PROFILE_NAME</string></dict>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict></plist>
+          EOF
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Teyze.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/cikti" \
+            -authenticationKeyPath "$RUNNER_TEMP/AuthKey.p8" -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          rm -f "$RUNNER_TEMP/AuthKey.p8"
+
+      - name: IPA dosyasını sakla (yükleme yapılmadıysa)
+        if: steps.keys.outputs.ok == '1' && env.APP_EXISTS != '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Teyze-iOS
+          path: ${{ runner.temp }}/cikti/*.ipa
