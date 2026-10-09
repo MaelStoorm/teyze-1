@@ -1,6 +1,6 @@
 # iPhone (App Store) sürümü: Godot'un iOS dışa aktarımıyla Xcode projesi üretilir, GitHub'ın Mac
 # sunucusunda derlenir, imzalanır ve App Store Connect'e (TestFlight) yüklenir.
-# Apple gizli değerleri (ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8) yoksa yalnızca imzasız derlenip denetlenir.
+# Apple anahtarı (gizli değer ASC_KEY_P8) yoksa yalnızca imzasız derlenip denetlenir.
 # © 2026 Egemen, MaelStoorm Studios. Tüm hakları saklıdır.
 name: iOS derleme
 
@@ -29,8 +29,8 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 60
     env:
-      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID || '9T56U9RA2U' }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID || 'b5342a93-c449-4f20-bb30-9d03e0767ad6' }}
       ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
     steps:
       - uses: actions/checkout@v5
